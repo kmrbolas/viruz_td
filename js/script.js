@@ -35,8 +35,8 @@ class Vector2
     static angleVector(a) { return new Vector2(Math.cos(a), Math.sin(a)); }
     static perp(v) { return new Vector2(v.y, -v.x); }
     
-	static dot(v1, v2) { return v1.x * v2.x + v1.y + v2.y; }
-    static cross(v1, v2) { return v1.x * v2.y - v1.y + v2.x; }
+	static dot(v1, v2) { return v1.x * v2.x + v1.y * v2.y; }
+    static cross(v1, v2) { return v1.x * v2.y - v1.y * v2.x; }
     static lerp(v1, v2, t) { return new Vector2(Math.lerp(v1.x, v2.x, t), Math.lerp(v1.y, v2.y, t)); }
     
     dot(v) { return Vector2.dot(this, v); }
@@ -85,6 +85,31 @@ class Vector2
 
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
+
+function RenderLine(color, lineWidth, origin, first, ...next)
+{
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    context.beginPath();
+    context.moveTo(origin.x, origin.y);
+    context.lineTo(first.x, first.y);
+    next.forEach(pos => { context.lineTo(pos.x, pos.y); });
+    context.stroke();
+}
+
+function MinDistanceFromPointToLine(v1, v2, point)
+{
+    let AB = Vector2.sub(v2, v1);
+    let AC = Vector2.sub(point, v1);
+    return Math.abs(Vector2.cross(AC, AB) / AB.magnitude);
+}
+
+function IntersectLines(a, b, c, d)
+{
+    const r = Vector2.sub(b, a);
+    const s = Vector2.sub(d, c);
+    return vec(Vector2.cross(Vector2.sub(c, a), s) / Vector2.cross(r, s), Vector2.cross(Vector2.sub(a, c), r) / Vector2.cross(s, r));
+}
 
 let Time = 
 {
@@ -645,7 +670,7 @@ let sprites =
     beetle_a: Sprite.CreateArray("images/enemies/Bettle/beetle_a_0.png", "images/enemies/Bettle/beetle_a_1.png"),
     beetle_s: Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png"),
 
-    machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
+    machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
     track: new Sprite("images/background/Track01.png"),
 }
@@ -696,107 +721,86 @@ map1.core.OnDeath = () => { console.log("you lose playboy."); }
 
 class Turret extends Entity
 {
-    constructor(range, fov, speed, position)
+    constructor(speed, range, fov, position)
     {
         super(position, 0, 5);
         this.range = range;
         this.fov = fov;
-        this.timer = new Timer(1 / speed, this.Shoot.bind(this));
         this.targets = Array(0);
+        this.timer = new Timer(1 / speed, () => { if (this.targets.length > 0) this.Shoot(); });
     }
     get speed() { return this.timer.rate; }
     set speed(value) { this.timer.rate = value; }
-    get bullet_speed() { return speed * 50; }
+    get bullet_speed() { return this.speed * 50; }
     get bullet_position() { return this.position; }
     create_bullet(target, speed, position, angle) { return new Bullet(target, speed, position, angle); }
     Shoot()
     {
-        if (this.targets.length == 0) return;
         let target = this.targets[0];
         let angle = Vector2.sub(target.position, this.bullet_position).angle;
         this.manager.AddEntity(this.create_bullet(target, this.bullet_speed, this.bullet_position, angle));
     }
     UpdateRotation()
     {
-        if (this.targets.length == 0)
-            this.rotation += .1;
-        else
-            this.FaceTo(this.targets[0].position, Time.deltaTime);
+        if (this.targets.length > 0)
+            this.FaceTo(this.targets[0].position, this.speed * Time.deltaTime);
     }
     Update()
     {
-        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => {
-            return e instanceof Enemy && Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) <= this.fov / 2;
-        });
-        timer.Update();
+        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => { return e instanceof Enemy; });
+        this.targets = this.targets.sort((a, b) => { return a.traveled_distance < b.traveled_distance; });
         this.UpdateRotation();
+        this.targets.remove_if(e => { return Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) > this.fov / 2; });
+        this.timer.Update();
+    }
+    RenderRange(color = "#F00")
+    {
+        let d = this.fov / 2;
+        let a1 = this.rotation - d;
+        let a2 = this.rotation + d;
+        let dir1 = Vector2.angleVector(a1).mult(this.range).add(this.position);
+        let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.position);
+        RenderLine(color, 1, dir1, this.position, dir2);
+        let c = new Circle2D(this.position, this.range);
+        c.RenderBorder(color, 1, a1, a2);
     }
 }
 class MachineGun extends Turret
 {
-    constructor(range, fov, speed, position)
+    constructor(damage, speed, range, fov, position)
     {
-        super(range, fov, speed, position)
+        super(speed, range, fov, position)
+        this.damage = damage;
         this.left = false;
         this.sprite = sprites.machine_gun[0];
+        this.scale = .5;
     }
-
-    Shoot()
+    get bullet_position()
     {
-        if (this.targets.length == 0)
-        {
-            this.sprite = sprites.machine_gun[0];
-            return;
-        }
-        let dir = Vector2.sub(this.target.position, this.position).normalized;
-        if (Vector2.distance(dir, Vector2.angleVector(this.rotation)) > this.fov / 2)
-            return;
-        this.left = !this.left;
-        this.anim.current_index = this.left ? 1 : 2;
-        let a = this.left ? -.4 : .4;
-        let origin = Vector2.add(this.local_position, Vector2.angleVector(this.local_rotation + a).mult(30 * this.scale));
-        let b = new Bullet(this.target, this.bulletSpeed, origin);
+        let a = this.left ? -.5 : .5;
+        return Vector2.add(this.local_position, Vector2.angleVector(this.local_rotation + a).mult(30 * this.scale));
+    }
+    create_bullet(target, speed, position, angle)
+    {
+        let b = new Bullet(target, speed, position, angle);
         b.damage = this.damage;
         b.OnHit = function() {
             this.target.life -= this.damage;
             this.Release();
         };
-        level.AddEntities(b);
-        this.target = null;
+        b.render_layer = 6;
+        return b;
     }
-
-    UpdateTarget()
+    Shoot()
     {
-        let enemies = level.OverlapCircle(new Circle2D(this.local_position, this.range), e => { return e instanceof Enemy; });
-        if (enemies.length == 0)
-            return;
-        enemies = enemies.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
-        this.target = enemies[0];
-        this.FaceTo(this.target.position, 5 * Time.deltaTime);
+        this.left = !this.left;
+        this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
+        super.Shoot();
     }
-
-    Update()
-    {
-        this.UpdateTarget();
-        this.timer.Update();
-    }
-
     Render()
     {
-        let dir1 = Vector2.angleVector(this.rotation - .2).mult(this.range).add(this.position);
-        let dir2 = Vector2.angleVector(this.rotation + .2).mult(this.range).add(this.position);
-        context.strokeStyle = "#F00";
-        context.beginPath();
-        context.moveTo(this.position.x, this.position.y);
-        context.lineTo(dir1.x, dir1.y);
-        context.stroke();
-        context.beginPath();
-        context.moveTo(this.position.x, this.position.y);
-        context.lineTo(dir2.x, dir2.y);
-        context.stroke();
-        let c = new Circle2D(this.position, this.range);
-        c.RenderBorder("F00", 1, this.rotation - .2, this.rotation + .2);
-        this.anim.Render();
+        if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
+        this.sprite.Render(this.position, this.rotation, this.scale);
     }
 
 }
@@ -812,7 +816,7 @@ class GameMap
 }
 
 let level = new EntityManager(map1.core);
-level.AddEntities(new MachineGun(300, 50, 7, vec(300, 300)));
+level.AddEntities(new MachineGun(50, 10, 230, .4, vec(300, 200)));
 
 let wave = function(delay, create_enemy = null, count = 1)
 {
@@ -845,10 +849,37 @@ timer.OnTimerTick = OnTimerTick.bind(timer);
 level.AddEntity(timer);
 timer = null;
 
+function ValidPosition(map, manager, position)
+{
+    let positions = new Array(map.path.origin);
+    map.path.positions.forEach(pos => { positions.push(pos); });
+    for (let i = 0; i < positions.length; i++) {
+        if (Vector2.distance(positions[i], position) < 50)
+            return false;
+    }
+    for (let i = 0; i + 1 < positions.length; i++) {
+        const v1 = positions[i];
+        const v2 = positions[i + 1];
+        let d = position.add(v1.sub(v2).perp.normalized);
+        let v = IntersectLines(v1, v2, position, d);
+        if (v.x < 0 || v.x > 1)
+            continue;
+        if (MinDistanceFromPointToLine(v1, v2, position) < 50)
+            return false;
+    }
+    let turrets = manager.OverlapCircle(new Circle2D(Input.mousePos, 40), t => { return t instanceof Turret; });
+    if (turrets.length > 0)
+        return false;
+    return true;
+}
+
+let valid = false;
+
 function Update()
 {
-    if (Input.mouseClick)
-        level.AddEntity(new MachineGun(300, 25, 5, Input.mousePos));
+    valid = ValidPosition(map1, level, Input.mousePos);
+    if (Input.mouseClick && valid)
+        level.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
     level.Update();
 }
 
@@ -857,6 +888,10 @@ function Render()
     sprites.track.Render(vec(sprites.track.image.width, sprites.track.image.height).div(2), 0, 1);
     level.Render();
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
+    if (valid)
+        sprites.machine_gun[3].Render(Input.mousePos, 0, .5);
+    else
+        sprites.machine_gun[4].Render(Input.mousePos, 0, .5);
 }
 
 context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
@@ -875,6 +910,10 @@ function loop(elapsed)
 }
 
 canvas.addEventListener("click", e => { Input.mouseClick = true; });
-canvas.addEventListener("mousemove", e => { Input.mousePos = vec(e.pageX, e.pageY); });
+canvas.addEventListener("mousemove", e =>
+{
+    let rect = canvas.getBoundingClientRect();
+    Input.mousePos = vec(e.clientX - rect.left, e.clientY - rect.top);
+});
 
 window.requestAnimationFrame(loop);
