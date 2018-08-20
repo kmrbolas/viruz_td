@@ -226,7 +226,6 @@ class Sprite
         return result;
     }
 }
-
 class Path
 {
     constructor(core, origin, ...positions)
@@ -254,7 +253,6 @@ class Path
     Next() { ++this.current_index; }
 
 }
-
 class BasicEntity
 {
     constructor(render_layer = 0, enabled = true)
@@ -268,7 +266,6 @@ class BasicEntity
     Update() {  }
     Render() {  }
 }
-
 class Timer extends BasicEntity
 {
     constructor(delay, OnTimerTick = () => {  })
@@ -292,7 +289,6 @@ class Timer extends BasicEntity
     }
 
 }
-
 class Entity extends BasicEntity
 {
     constructor(local_position = vec(0, 0), local_rotation = 0, render_layer = 0, enabled = true)
@@ -334,7 +330,6 @@ class Entity extends BasicEntity
     }
 
 }
-
 class Animation extends Entity
 {
     constructor(fps, ...sprites)
@@ -368,7 +363,6 @@ class Animation extends Entity
     }
     
 }
-
 class EntityManager
 {
     constructor(...entities)
@@ -436,7 +430,6 @@ class EntityManager
     }
     
 }
-
 class KillableEntity extends Entity
 {
     constructor(max_life, position = vec(0, 0), rotation = 0, render_layer = 0)
@@ -478,7 +471,6 @@ class KillableEntity extends Entity
     }
 
 }
-
 class Bullet extends Entity
 {
     constructor(target, speed, position = vec(0, 0), rotation = 0)
@@ -501,7 +493,6 @@ class Bullet extends Entity
     OnHit() { this.Release(); }
     
 }
-
 class Enemy extends KillableEntity
 {
     constructor(speed, max_life, path = null)
@@ -573,7 +564,6 @@ class Enemy extends KillableEntity
         this.manager.AddEntities(...to_spawn);
     }
 }
-
 class AnimEnemy extends Enemy
 {
     constructor(anim, scale, speed, max_life, path = null)
@@ -600,7 +590,6 @@ class AnimEnemy extends Enemy
     }
 
 }
-
 class SpiderD extends AnimEnemy { constructor(path = null) { super(animations.spider_d, .4, 180, 100, path); } }
 class SpiderC extends AnimEnemy { constructor(path = null) { super(animations.spider_c, .6, 120, 150, path); } }
 class SpiderB extends AnimEnemy
@@ -696,7 +685,8 @@ let create_enemy =
 let map1 = 
 {
     core: new KillableEntity(10000, vec(624, 540)),
-    path: null
+    path: null,
+    manager: new EntityManager(),
 }
 
 map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(156, 293), vec(158, 444), vec(624, 449));
@@ -704,36 +694,62 @@ map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(1
 map1.core.OnLifeChanged = value => { console.log("core hp: " + value); }
 map1.core.OnDeath = () => { console.log("you lose playboy."); }
 
-class MachineGun extends Entity
+class Turret extends Entity
 {
-    constructor(range, damage, fireRate, position, bulletSpeed = 700)
+    constructor(range, fov, speed, position)
     {
-        super(position);
-        this.render_layer = 5;
-        this.anim = animations.machine_gun.copy;
-        this.anim.parent = this;
+        super(position, 0, 5);
         this.range = range;
-        this.damage = damage;
-        this.bulletSpeed = bulletSpeed;
-        this.left = false;
-        this.timer = new Timer(1 / fireRate, this.Shoot.bind(this));
-        this.scale = 1;
-        this.target = null;
+        this.fov = fov;
+        this.timer = new Timer(1 / speed, this.Shoot.bind(this));
+        this.targets = Array(0);
     }
-    get scale() { return this.anim.scale; }
-    set scale(value) { this.anim.scale = value; }
-    get fireRate() { return this.timer.rate; }
-    set fireRate(value) { this.timer.rate = value; }
+    get speed() { return this.timer.rate; }
+    set speed(value) { this.timer.rate = value; }
+    get bullet_speed() { return speed * 50; }
+    get bullet_position() { return this.position; }
+    create_bullet(target, speed, position, angle) { return new Bullet(target, speed, position, angle); }
+    Shoot()
+    {
+        if (this.targets.length == 0) return;
+        let target = this.targets[0];
+        let angle = Vector2.sub(target.position, this.bullet_position).angle;
+        this.manager.AddEntity(this.create_bullet(target, this.bullet_speed, this.bullet_position, angle));
+    }
+    UpdateRotation()
+    {
+        if (this.targets.length == 0)
+            this.rotation += .1;
+        else
+            this.FaceTo(this.targets[0].position, Time.deltaTime);
+    }
+    Update()
+    {
+        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => {
+            return e instanceof Enemy && Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) <= this.fov / 2;
+        });
+        timer.Update();
+        this.UpdateRotation();
+    }
+}
+class MachineGun extends Turret
+{
+    constructor(range, fov, speed, position)
+    {
+        super(range, fov, speed, position)
+        this.left = false;
+        this.sprite = sprites.machine_gun[0];
+    }
 
     Shoot()
     {
-        if (this.target == null)
+        if (this.targets.length == 0)
         {
-            this.anim.current_index = 0;
+            this.sprite = sprites.machine_gun[0];
             return;
         }
         let dir = Vector2.sub(this.target.position, this.position).normalized;
-        if (Vector2.distance(dir, Vector2.angleVector(this.rotation)) > .4)
+        if (Vector2.distance(dir, Vector2.angleVector(this.rotation)) > this.fov / 2)
             return;
         this.left = !this.left;
         this.anim.current_index = this.left ? 1 : 2;
@@ -751,9 +767,7 @@ class MachineGun extends Entity
 
     UpdateTarget()
     {
-        let enemies = level.OverlapCircle(new Circle2D(this.local_position, this.range), e => {
-            return e instanceof Enemy;
-        });
+        let enemies = level.OverlapCircle(new Circle2D(this.local_position, this.range), e => { return e instanceof Enemy; });
         if (enemies.length == 0)
             return;
         enemies = enemies.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
@@ -842,6 +856,7 @@ function Render()
 {
     sprites.track.Render(vec(sprites.track.image.width, sprites.track.image.height).div(2), 0, 1);
     level.Render();
+    rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
 }
 
 context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
