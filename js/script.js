@@ -615,61 +615,19 @@ class AnimEnemy extends Enemy
     }
 
 }
-class SpiderD extends AnimEnemy { constructor(path = null) { super(animations.spider_d, .4, 180, 100, path); } }
-class SpiderC extends AnimEnemy { constructor(path = null) { super(animations.spider_c, .6, 120, 150, path); } }
-class SpiderB extends AnimEnemy
-{
-    constructor(path = null) { super(animations.spider_b, .7, 100, 180, path); }
-    OnDeath()
-    {
-        this.SpawnAdjacent(new SpiderC(this.path), new SpiderC(this.path));
-        super.OnDeath();
-    }
-}
-class SpiderA extends AnimEnemy
-{
-    constructor(path = null) { super(animations.spider_a, .7, 90, 250, path); }
-    OnDeath()
-    {
-        this.SpawnAdjacent(new SpiderB(this.path), new SpiderB(this.path));
-        super.OnDeath();
-    }
-}
-class BettleD extends AnimEnemy { constructor(path = null) { super(animations.bettle_d, .4, 120, 300, path); } }
-class BettleC extends AnimEnemy { constructor(path = null) { super(animations.bettle_c, .3, 100, 450, path); } }
-class BettleB extends AnimEnemy
-{
-    constructor(path = null) { super(animations.bettle_b, .5, 90, 900, path); }
-    OnDeath()
-    {
-        this.SpawnAdjacent(new BettleC(this.path), new BettleC(this.path));
-        super.OnDeath();
-    }
-}
-class BettleA extends AnimEnemy
-{
-    constructor(path = null) { super(animations.bettle_a, .5, 80, 1200, path); }
-    OnDeath()
-    {
-        this.SpawnAdjacent(new BettleB(this.path), new BettleB(this.path));
-        super.OnDeath();
-    }
-}
 
 let sprites = 
 {
-    spider_d: Sprite.CreateArray("images/enemies/Spider/spider_d_0.png", "images/enemies/Spider/spider_d_1.png", "images/enemies/Spider/spider_d_2.png", "images/enemies/Spider/spider_d_3.png"),
-    spider_c: Sprite.CreateArray("images/enemies/Spider/spider_c_0.png", "images/enemies/Spider/spider_c_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_c_3.png"),
-    spider_b: Sprite.CreateArray("images/enemies/Spider/spider_b_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_b_2.png", "images/enemies/Spider/spider_b_3.png"),
-    spider_a: Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_a_1.png", "images/enemies/Spider/spider_a_2.png", "images/enemies/Spider/spider_a_3.png"),
-    spider_s: Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_d_3.png"),
-
-    beetle_d: Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_d_1.png"),
-    beetle_c: Sprite.CreateArray("images/enemies/Bettle/beetle_c_0.png", "images/enemies/Bettle/beetle_c_1.png"),
-    beetle_b: Sprite.CreateArray("images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_b_1.png"),
-    beetle_a: Sprite.CreateArray("images/enemies/Bettle/beetle_a_0.png", "images/enemies/Bettle/beetle_a_1.png"),
-    beetle_s: Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png"),
-
+    spider:[Sprite.CreateArray("images/enemies/Spider/spider_d_0.png", "images/enemies/Spider/spider_d_1.png", "images/enemies/Spider/spider_d_2.png", "images/enemies/Spider/spider_d_3.png"),
+            Sprite.CreateArray("images/enemies/Spider/spider_c_0.png", "images/enemies/Spider/spider_c_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_c_3.png"),
+            Sprite.CreateArray("images/enemies/Spider/spider_b_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_b_2.png", "images/enemies/Spider/spider_b_3.png"),
+            Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_a_1.png", "images/enemies/Spider/spider_a_2.png", "images/enemies/Spider/spider_a_3.png"),
+            Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_d_3.png")],
+    beetle:[Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_d_1.png"),
+            Sprite.CreateArray("images/enemies/Bettle/beetle_c_0.png", "images/enemies/Bettle/beetle_c_1.png"),
+            Sprite.CreateArray("images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_b_1.png"),
+            Sprite.CreateArray("images/enemies/Bettle/beetle_a_0.png", "images/enemies/Bettle/beetle_a_1.png"),
+            Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png")],
     machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
     track: new Sprite("images/background/Track01.png"),
@@ -677,34 +635,51 @@ let sprites =
 
 let animations =
 {
-    spider_d: new Animation(12, ...sprites.spider_d),
-    spider_c: new Animation(12, ...sprites.spider_c),
-    spider_b: new Animation(12, ...sprites.spider_b),
-    spider_a: new Animation(12, ...sprites.spider_a),
-    spider_s: new Animation(12, ...sprites.spider_s),
+    spider:[new Animation(12, ...sprites.spider[0]),
+            new Animation(12, ...sprites.spider[1]),
+            new Animation(12, ...sprites.spider[2]),
+            new Animation(12, ...sprites.spider[3]),
+            new Animation(12, ...sprites.spider[4])],
 
-    bettle_d: new Animation(12, ...sprites.beetle_d),
-    bettle_c: new Animation(12, ...sprites.beetle_c),
-    bettle_b: new Animation(12, ...sprites.beetle_b),
-    bettle_a: new Animation(12, ...sprites.beetle_a),
-    bettle_s: new Animation(12, ...sprites.beetle_s),
+    beetle:[new Animation(12, ...sprites.beetle[0]),
+            new Animation(12, ...sprites.beetle[1]),
+            new Animation(12, ...sprites.beetle[2]),
+            new Animation(12, ...sprites.beetle[3]),
+            new Animation(12, ...sprites.beetle[4])],
 
     machine_gun: new Animation(12, ...sprites.machine_gun),
     explosion: new Animation(30, ...sprites.explosion),
 }
 
-let create_enemy = 
+class EnemyFactory
 {
-    spider_d(path) { return new SpiderD(path); },
-    spider_c(path) { return new SpiderC(path); },
-    spider_b(path) { return new SpiderB(path); },
-    spider_a(path) { return new SpiderA(path); },
-
-    bettle_d(path) { return new BettleD(path); },
-    bettle_c(path) { return new BettleC(path); },
-    bettle_b(path) { return new BettleB(path); },
-    bettle_a(path) { return new BettleA(path); },
-
+    constructor(anims, base_scale, base_speed, base_life)
+    {
+        this.anims = anims;
+        this.base_scale = base_scale;
+        this.base_speed = base_speed;
+        this.base_life = base_life;
+        this.Create = [ this.CreateByRank.bind(this, 0),
+                        this.CreateByRank.bind(this, 1),
+                        this.CreateByRank.bind(this, 2),
+                        this.CreateByRank.bind(this, 3),
+                        this.CreateByRank.bind(this, 4)];
+    }
+    CreateByRank(rank, path = null)
+    {
+        let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed * Math.pow(.9, rank), this.base_life * Math.pow(2, rank), path);
+        e.factory = this;
+        e.rank = rank;
+        if (rank == 2 || rank == 3)
+        {
+            e.OnDeath = function()
+            {
+                this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1, this.path), this.factory.CreateByRank(this.rank - 1, this.path));
+                this.Release();
+            }
+        }
+        return e;
+    }
 }
 
 let map1 = 
@@ -804,7 +779,6 @@ class MachineGun extends Turret
     }
 
 }
-
 class GameMap
 {
     constructor(background_sprite, paths, waves)
@@ -815,6 +789,9 @@ class GameMap
     }
 }
 
+let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
+let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
+
 let level = new EntityManager(map1.core);
 level.AddEntities(new MachineGun(50, 10, 230, .4, vec(300, 200)));
 
@@ -823,7 +800,7 @@ let wave = function(delay, create_enemy = null, count = 1)
     return { delay: delay, create_enemy: create_enemy, count: count };
 }
 
-let monsters = [wave(3), wave(.5, create_enemy.spider_b, 10), wave(3), wave(.5, create_enemy.spider_a, 5), wave(3), wave(.5, create_enemy.bettle_b, 5), wave(3), wave(.5, create_enemy.bettle_a, 5)]
+let monsters = [wave(3), wave(.5, spider_factory.Create[3], 3), wave(3), wave(.5, beetle_factory.Create[3], 3)];
 
 let timer = new Timer(monsters[0].delay);
 timer.i = 0;
