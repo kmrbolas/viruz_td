@@ -1,5 +1,4 @@
 "use strict";
-
 Array.prototype.remove_if = function(callback)
 {
     let i = this.length;
@@ -7,7 +6,6 @@ Array.prototype.remove_if = function(callback)
         if (callback(this[i], i, this))
             this.splice(i, 1);
 };
-
 Array.prototype.find_last_of = function(callback)
 {
     let i = this.length;
@@ -16,11 +14,8 @@ Array.prototype.find_last_of = function(callback)
             return this[i];
     return undefined;
 };
-
 Math.clamp = (value, min, max) => { return Math.max(min, Math.min(value, max)); }
-
 Math.lerp = (v1, v2, t) => { return v1 + (v2 - v1) * Math.clamp(t, 0, 1); };
-
 class Vector2
 {
 	constructor(x, y)
@@ -82,10 +77,8 @@ class Vector2
 	}
 
 };
-
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
-
 function RenderLine(color, lineWidth, origin, first, ...next)
 {
     context.strokeStyle = color;
@@ -96,34 +89,29 @@ function RenderLine(color, lineWidth, origin, first, ...next)
     next.forEach(pos => { context.lineTo(pos.x, pos.y); });
     context.stroke();
 }
-
 function MinDistanceFromPointToLine(v1, v2, point)
 {
     let AB = Vector2.sub(v2, v1);
     let AC = Vector2.sub(point, v1);
     return Math.abs(Vector2.cross(AC, AB) / AB.magnitude);
 }
-
 function IntersectLines(a, b, c, d)
 {
     const r = Vector2.sub(b, a);
     const s = Vector2.sub(d, c);
     return vec(Vector2.cross(Vector2.sub(c, a), s) / Vector2.cross(r, s), Vector2.cross(Vector2.sub(a, c), r) / Vector2.cross(s, r));
 }
-
 let Time = 
 {
     deltaTime: 0,
     unscaledDeltaTime: 0,
     timeScale: 1,
 }
-
 const Input = 
 {
     mouseClick: false,
     mousePos: vec(0, 0),
 }
-
 class Rectangle2D
 {
     constructor(position, size)
@@ -181,7 +169,6 @@ class Rectangle2D
     }
 
 }
-
 class Circle2D
 {
     constructor(center_position, radius)
@@ -221,11 +208,9 @@ class Circle2D
     }
 
 }
-
 function vec(x, y) { return new Vector2(x, y); }
 function rectangle(x, y, w, h) { return new Rectangle2D(vec(x, y), vec(w, h)); }
 function circle(cx, cy, r) { return new Circle2D(vec(cx, cy), r); }
-
 class Sprite
 {
     constructor(path)
@@ -496,28 +481,6 @@ class KillableEntity extends Entity
     }
 
 }
-class Bullet extends Entity
-{
-    constructor(target, speed, position = vec(0, 0), rotation = 0)
-    {
-        super(position, rotation);
-        this.target = target;
-        this.speed = speed;
-    }
-    Update()
-    {
-        this.FaceTo(this.target.position);
-        this.MoveTo(this.target.position, this.speed * Time.deltaTime);
-        if (Vector2.distance(this.local_position, this.target.position) <= this.speed * Time.deltaTime)
-            this.OnHit();
-    }
-    Render()
-    {
-        new Circle2D(this.position, 5).Render("#FF0");
-    }
-    OnHit() { this.Release(); }
-    
-}
 class Enemy extends KillableEntity
 {
     constructor(speed, max_life, path = null)
@@ -615,7 +578,6 @@ class AnimEnemy extends Enemy
     }
 
 }
-
 let sprites = 
 {
     spider:[Sprite.CreateArray("images/enemies/Spider/spider_d_0.png", "images/enemies/Spider/spider_d_1.png", "images/enemies/Spider/spider_d_2.png", "images/enemies/Spider/spider_d_3.png"),
@@ -629,10 +591,12 @@ let sprites =
             Sprite.CreateArray("images/enemies/Bettle/beetle_a_0.png", "images/enemies/Bettle/beetle_a_1.png"),
             Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png")],
     machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
+    anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
+    rocket: new Sprite("images/projectiles/rocket/0.png"),
+    bullet: new Sprite("images/projectiles/bullet/0.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
     track: new Sprite("images/background/Track01.png"),
 }
-
 let animations =
 {
     spider:[new Animation(12, ...sprites.spider[0]),
@@ -640,17 +604,15 @@ let animations =
             new Animation(12, ...sprites.spider[2]),
             new Animation(12, ...sprites.spider[3]),
             new Animation(12, ...sprites.spider[4])],
-
     beetle:[new Animation(12, ...sprites.beetle[0]),
             new Animation(12, ...sprites.beetle[1]),
             new Animation(12, ...sprites.beetle[2]),
             new Animation(12, ...sprites.beetle[3]),
             new Animation(12, ...sprites.beetle[4])],
-
     machine_gun: new Animation(12, ...sprites.machine_gun),
+    anti_air: new Animation(12, ...sprites.anti_air),
     explosion: new Animation(30, ...sprites.explosion),
 }
-
 class EnemyFactory
 {
     constructor(anims, base_scale, base_speed, base_life)
@@ -681,19 +643,39 @@ class EnemyFactory
         return e;
     }
 }
-
 let map1 = 
 {
     core: new KillableEntity(10000, vec(624, 540)),
     path: null,
     manager: new EntityManager(),
 }
-
 map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(156, 293), vec(158, 444), vec(624, 449));
 
 map1.core.OnLifeChanged = value => { console.log("core hp: " + value); }
 map1.core.OnDeath = () => { console.log("you lose playboy."); }
 
+class Bullet extends Entity
+{
+    constructor(target, speed, position = vec(0, 0), rotation = 0)
+    {
+        super(position, rotation);
+        this.target = target;
+        this.speed = speed;
+    }
+    Update()
+    {
+        this.FaceTo(this.target.position);
+        this.MoveTo(this.target.position, this.speed * Time.deltaTime);
+        if (Vector2.distance(this.local_position, this.target.position) <= this.speed * Time.deltaTime)
+            this.OnHit();
+    }
+    Render()
+    {
+        new Circle2D(this.position, 5).Render("#FF0");
+    }
+    OnHit() { this.Release(); }
+    
+}
 class Turret extends Entity
 {
     constructor(speed, range, fov, position)
@@ -718,12 +700,16 @@ class Turret extends Entity
     UpdateRotation()
     {
         if (this.targets.length > 0)
-            this.FaceTo(this.targets[0].position, this.speed * Time.deltaTime);
+            this.FaceTo(this.targets[0].position, 10 * Time.deltaTime);
+    }
+    UpdateTargets()
+    {
+        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => { return e instanceof Enemy; });
+        this.targets = this.targets.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     Update()
     {
-        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => { return e instanceof Enemy; });
-        this.targets = this.targets.sort((a, b) => { return a.traveled_distance < b.traveled_distance; });
+        this.UpdateTargets();
         this.UpdateRotation();
         this.targets.remove_if(e => { return Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) > this.fov / 2; });
         this.timer.Update();
@@ -779,6 +765,63 @@ class MachineGun extends Turret
     }
 
 }
+class RocketLauncher extends Turret
+{
+    constructor(damage, aoe, speed, range, fov, position)
+    {
+        super(speed, range, fov, position)
+        this.damage = damage;
+        this.aoe = aoe;
+        this.sprite = sprites.anti_air[0];
+        this.left = false;
+        this.scale = .5;
+    }
+    get bullet_speed() { return this.speed * 200; }
+    create_bullet(target, speed, position, angle)
+    {
+        let b = new Bullet(target, speed, position, angle);
+        b.damage = this.damage;
+        b.aoe = this.aoe;
+        b.sprite = sprites.rocket;
+        b.Render = function(){
+            this.sprite.Render(this.position, this.rotation, .5);
+        }
+        b.OnHit = function() {
+            let enemies = this.manager.OverlapCircle(new Circle2D(this.target.position, this.aoe), e => {
+                return e instanceof Enemy;
+            });
+            enemies.forEach(e => {
+                e.life -= this.damage;
+            });
+            let ex = animations.explosion.copy;
+            ex.position = this.target.position;
+            ex.scale = this.aoe / 50;
+            this.manager.AddEntity(ex);
+            this.Release();
+        };
+        b.render_layer = 4;
+        return b;
+    }
+    Shoot()
+    {
+        this.sprite = sprites.anti_air[1];
+        super.Shoot();
+    }
+    UpdateTargets()
+    {
+        super.UpdateTargets();
+        this.targets = this.targets.sort((a, b) => {
+            let a1 = this.manager.OverlapCircle(new Circle2D(a.position, this.aoe), e => { return e instanceof Enemy; });
+            let b1 = this.manager.OverlapCircle(new Circle2D(b.position, this.aoe), e => { return e instanceof Enemy; });
+            return b1.length - a1.length;
+        });
+    }
+    Render()
+    {
+        if (this.targets.length == 0) this.sprite = sprites.anti_air[0];
+        this.sprite.Render(this.position, this.rotation, this.scale);
+    }
+}
 class GameMap
 {
     constructor(background_sprite, paths, waves)
@@ -793,7 +836,7 @@ let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
 
 let level = new EntityManager(map1.core);
-level.AddEntities(new MachineGun(50, 10, 230, .4, vec(300, 200)));
+level.AddEntities(new RocketLauncher(50, 120, 4, 300, .6, vec(300, 200)));
 
 let wave = function(delay, create_enemy = null, count = 1)
 {
