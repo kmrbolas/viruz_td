@@ -808,59 +808,26 @@ class GameMap extends Entity
         this.paths = paths;
         this.waves = waves;
     }
+    Render()
+    {
+        this.background_sprite.position = this.background_sprite.size.div(mult);
+        this.background_sprite.Render();
+    }
 
 }
 
 let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
 
-let map1 =
-{
-    core: new KillableEntity(10000, vec(624, 540)),
-    path: null,
-    manager: new EntityManager(),
-}
-map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(156, 293), vec(158, 444), vec(624, 449));
-map1.core.OnLifeChanged = value => { console.log("core hp: " + value); }
-map1.core.OnDeath = () => { console.log("you lose playboy."); }
-
 let level_manager = new EntityManager(map1.core);
-level_manager.AddEntities(new RocketLauncher(50, 50, 4, 300, .6, vec(300, 200)));
-
-let monsters = [wave(3), wave(.5, spider_factory.Create[3], 3), wave(3), wave(.5, beetle_factory.Create[3], 3)];
-
-let timer = new Timer(monsters[0].delay);
-timer.i = 0;
-timer.count = 0;
-let OnTimerTick = function()
-{
-    let wave = monsters[this.i];
-    if (this.count == wave.count || wave.create_enemy == null)
-    {
-        this.count = 0;
-        if (++this.i == monsters.length)
-        {
-            this.Release();
-            return;
-        }
-        this.delay = monsters[this.i].delay;
-        return;
-    }
-    level_manager.AddEntity(wave.create_enemy(map1.path));
-    this.count++;
-}
-timer.OnTimerTick = OnTimerTick.bind(timer);
-level_manager.AddEntity(timer);
-timer = null;
 
 function ValidPosition(map, manager, position)
 {
     let positions = new Array(map.path.origin);
     map.path.positions.forEach(pos => { positions.push(pos); });
-    for (let i = 0; i < positions.length; i++) {
+    for (let i = 0; i < positions.length; i++)
         if (Vector2.distance(positions[i], position) < 50)
             return false;
-    }
     for (let i = 0; i + 1 < positions.length; i++) {
         const v1 = positions[i];
         const v2 = positions[i + 1];
@@ -871,10 +838,8 @@ function ValidPosition(map, manager, position)
         if (MinDistanceFromPointToLine(v1, v2, position) < 50)
             return false;
     }
-    let turrets = manager.OverlapCircle(new Circle2D(Input.mousePos, 40), t => { return t instanceof Turret; });
-    if (turrets.length > 0)
-        return false;
-    return true;
+    let turrets = manager.OverlapCircle(new Circle2D(position, 40), t => { return t instanceof Turret; });
+    return turrets.length > 0;
 }
 
 let turret_sprite = sprites.machine_gun[4];
