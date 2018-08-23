@@ -730,6 +730,8 @@ class Turret extends Entity
 }
 class MachineGun extends Turret
 {
+    static get enabled_sprite() { return sprites.machine_gun[3]; }
+    static get disabled_sprite() { return sprites.machine_gun[4]; }
     constructor(damage, speed, range, fov, position)
     {
         super(speed, range, fov, position)
@@ -880,7 +882,7 @@ let turret_sprite = sprites.machine_gun[4];
 function Update()
 {
     let valid = ValidPosition(map1, level_manager, Input.mousePos);
-    turret_sprite = valid ? sprites.machine_gun[3] : sprites.machine_gun[4];
+    turret_sprite = valid ? MachineGun.enabled_sprite : MachineGun.disabled_sprite;
     if (Input.mouseClick && valid)
         level_manager.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
     level_manager.Update();
