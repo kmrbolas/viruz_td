@@ -605,7 +605,7 @@ let animations =
     machine_gun: new Animation(12, ...sprites.machine_gun),
     anti_air: new Animation(12, ...sprites.anti_air),
     explosion: new Animation(30, ...sprites.explosion),
-    explosion_realistic: new Animation(30, ...sprites.explosion_realistic),
+    explosion_realistic: new Animation(120, ...sprites.explosion_realistic),
 }
 class EnemyFactory
 {
@@ -846,7 +846,7 @@ class GameMap extends Entity
 let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
 
-let level_manager = new EntityManager(map1.core);
+let level_manager = new EntityManager();
 
 function ValidPosition(map, manager, position)
 {
@@ -873,10 +873,16 @@ let turret_sprite = sprites.machine_gun[4];
 
 function Update()
 {
-    let valid = ValidPosition(map1, level_manager, Input.mousePos);
+    let valid = false;
     turret_sprite = valid ? MachineGun.enabled_sprite : MachineGun.disabled_sprite;
     if (Input.mouseClick && valid)
         level_manager.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
+    if (Input.mouseClick)
+    {
+        let ex = animations.explosion_realistic.copy;
+        ex.position = Input.mousePos;
+        level_manager.AddEntity(ex);
+    }
     level_manager.Update();
 }
 
@@ -888,7 +894,7 @@ function Render()
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
     turret_sprite.position = Input.mousePos;
     turret_sprite.scale = .5;
-    turret_sprite.Render();
+    // turret_sprite.Render();
 }
 
 context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
