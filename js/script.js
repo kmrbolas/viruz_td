@@ -562,6 +562,32 @@ let sprites =
     rocket: new Sprite("images/projectiles/rocket/0.png"),
     bullet: new Sprite("images/projectiles/bullet/0.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
+    explosion_realistic: Sprite.CreateArray("images/effects/realexplosion/1.png",
+                                            "images/effects/realexplosion/2.png",
+                                            "images/effects/realexplosion/3.png",
+                                            "images/effects/realexplosion/4.png",
+                                            "images/effects/realexplosion/5.png",
+                                            "images/effects/realexplosion/6.png",
+                                            "images/effects/realexplosion/7.png",
+                                            "images/effects/realexplosion/8.png",
+                                            "images/effects/realexplosion/9.png",
+                                            "images/effects/realexplosion/10.png",
+                                            "images/effects/realexplosion/11.png",
+                                            "images/effects/realexplosion/12.png",
+                                            "images/effects/realexplosion/13.png",
+                                            "images/effects/realexplosion/14.png",
+                                            "images/effects/realexplosion/15.png",
+                                            "images/effects/realexplosion/16.png",
+                                            "images/effects/realexplosion/17.png",
+                                            "images/effects/realexplosion/18.png",
+                                            "images/effects/realexplosion/19.png",
+                                            "images/effects/realexplosion/20.png",
+                                            "images/effects/realexplosion/21.png",
+                                            "images/effects/realexplosion/22.png",
+                                            "images/effects/realexplosion/23.png",
+                                            "images/effects/realexplosion/24.png",
+                                            "images/effects/realexplosion/25.png",
+                                            "images/effects/realexplosion/26.png"),
     track: new Sprite("images/background/Track01.png"),
 }
 let animations =
@@ -579,6 +605,7 @@ let animations =
     machine_gun: new Animation(12, ...sprites.machine_gun),
     anti_air: new Animation(12, ...sprites.anti_air),
     explosion: new Animation(30, ...sprites.explosion),
+    explosion_realistic: new Animation(30, ...sprites.explosion_realistic),
 }
 class EnemyFactory
 {
@@ -666,7 +693,7 @@ class Rocket extends Projectile
         enemies.forEach(e => {
             e.life -= this.damage;
         });
-        let ex = animations.explosion.copy;
+        let ex = animations.explosion_realistic.copy;
         ex.position = this.target.position;
         ex.scale = this.aoe / 50;
         this.manager.AddEntity(ex);
