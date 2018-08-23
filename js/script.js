@@ -16,6 +16,10 @@ Array.prototype.find_last_of = function(callback)
 };
 Math.clamp = (value, min, max) => { return Math.max(min, Math.min(value, max)); }
 Math.lerp = (v1, v2, t) => { return v1 + (v2 - v1) * Math.clamp(t, 0, 1); };
+function wave(delay, create_enemy = null, count = 1)
+{
+    return { delay: delay, create_enemy: create_enemy, count: count };
+}
 class Vector2
 {
 	constructor(x, y)
@@ -326,6 +330,12 @@ class Sprite extends Entity
         this.image = new Image();
         this.image.src = path;
     }
+    get size() { return vec(this.image.width, this.image.height); }
+    set size(value)
+    {
+        this.image.width = value.x;
+        this.image.height = value.y;
+    }
     Render()
     {
         context.save();
@@ -600,17 +610,6 @@ class EnemyFactory
         return e;
     }
 }
-let map1 =
-{
-    core: new KillableEntity(10000, vec(624, 540)),
-    path: null,
-    manager: new EntityManager(),
-}
-map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(156, 293), vec(158, 444), vec(624, 449));
-
-map1.core.OnLifeChanged = value => { console.log("core hp: " + value); }
-map1.core.OnDeath = () => { console.log("you lose playboy."); }
-
 class Projectile extends Entity
 {
     constructor(target, speed, position = vec(0, 0), rotation = 0, scale = 1, render_layer = 0)
@@ -757,6 +756,7 @@ class MachineGun extends Turret
     Render()
     {
         if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
+        this.sprite.transform = this.transform;
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
 
@@ -798,7 +798,7 @@ class RocketLauncher extends Turret
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
 }
-class GameMap
+class GameMap extends Entity
 {
     constructor(background_sprite, paths, waves)
     {
@@ -806,18 +806,24 @@ class GameMap
         this.paths = paths;
         this.waves = waves;
     }
+
 }
 
 let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
 
-let level = new EntityManager(map1.core);
-level.AddEntities(new RocketLauncher(50, 50, 4, 300, .6, vec(300, 200)));
-
-let wave = function(delay, create_enemy = null, count = 1)
+let map1 =
 {
-    return { delay: delay, create_enemy: create_enemy, count: count };
+    core: new KillableEntity(10000, vec(624, 540)),
+    path: null,
+    manager: new EntityManager(),
 }
+map1.path = new Path(map1.core, vec(0, 100), vec(650, 100), vec(650, 289), vec(156, 293), vec(158, 444), vec(624, 449));
+map1.core.OnLifeChanged = value => { console.log("core hp: " + value); }
+map1.core.OnDeath = () => { console.log("you lose playboy."); }
+
+let level_manager = new EntityManager(map1.core);
+level_manager.AddEntities(new RocketLauncher(50, 50, 4, 300, .6, vec(300, 200)));
 
 let monsters = [wave(3), wave(.5, spider_factory.Create[3], 3), wave(3), wave(.5, beetle_factory.Create[3], 3)];
 
@@ -838,11 +844,11 @@ let OnTimerTick = function()
         this.delay = monsters[this.i].delay;
         return;
     }
-    level.AddEntity(wave.create_enemy(map1.path));
+    level_manager.AddEntity(wave.create_enemy(map1.path));
     this.count++;
 }
 timer.OnTimerTick = OnTimerTick.bind(timer);
-level.AddEntity(timer);
+level_manager.AddEntity(timer);
 timer = null;
 
 function ValidPosition(map, manager, position)
@@ -869,25 +875,26 @@ function ValidPosition(map, manager, position)
     return true;
 }
 
-let valid = false;
+let turret_sprite = sprites.machine_gun[4];
 
 function Update()
 {
-    valid = ValidPosition(map1, level, Input.mousePos);
+    let valid = ValidPosition(map1, level_manager, Input.mousePos);
+    turret_sprite = valid ? sprites.machine_gun[3] : sprites.machine_gun[4];
     if (Input.mouseClick && valid)
-        level.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
-    level.Update();
+        level_manager.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
+    level_manager.Update();
 }
 
 function Render()
 {
-    sprites.track.Render(vec(sprites.track.image.width, sprites.track.image.height).div(2), 0, 1);
-    level.Render();
+    sprites.track.position = sprites.track.size.div(2);
+    sprites.track.Render();
+    level_manager.Render();
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
-    if (valid)
-        sprites.machine_gun[3].Render(Input.mousePos, 0, .5);
-    else
-        sprites.machine_gun[4].Render(Input.mousePos, 0, .5);
+    turret_sprite.position = Input.mousePos;
+    turret_sprite.scale = .5;
+    turret_sprite.Render();
 }
 
 context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
