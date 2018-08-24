@@ -330,6 +330,8 @@ class Sprite extends Entity
         this.image = new Image();
         this.image.src = path;
     }
+    get top_position() { return Vector2.sub(this.position, this.size.div(2)); }
+    set top_position(value) { this.position = Vector2.add(value, this.size.div(2)); }
     get size() { return vec(this.image.width, this.image.height); }
     set size(value)
     {
@@ -679,9 +681,9 @@ class Bullet extends Projectile
 }
 class Rocket extends Projectile
 {
-    constructor(target, damage, aoe, speed, position = vec(0, 0), rotation = 0)
+    constructor(target, damage, aoe, speed, position = vec(0, 0), rotation = 0, scale = 1)
     {
-        super(target, speed, position, rotation);
+        super(target, speed, position, rotation, scale);
         this.damage = damage;
         this.aoe = aoe;
     }
@@ -719,12 +721,10 @@ class Turret extends Entity
     set speed(value) { this.timer.rate = value; }
     get bullet_speed() { return this.speed * 50; }
     get bullet_position() { return this.position; }
-    create_bullet(target, speed, position, angle) { return new Projectile(target, speed, position, angle); }
+    get target() { return this.targets[0]; }
     Shoot()
     {
-        let target = this.targets[0];
-        let angle = Vector2.sub(target.position, this.bullet_position).angle;
-        this.manager.AddEntity(this.create_bullet(target, this.bullet_speed, this.bullet_position, angle));
+        this.manager.AddEntity(new Projectile(this.target, this.bullet_speed, this.bullet_position, this.rotation));
     }
     UpdateRotation()
     {
@@ -827,24 +827,52 @@ class RocketLauncher extends Turret
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
 }
-class GameMap extends Entity
+class WaveSpawner extends Timer
+{
+    constructor(path, waves)
+    {
+        super(waves[0].delay);
+        this.path = path;
+        this.waves = waves;
+        this.wave_index = 0;
+        this.enemy_index = 0;
+    }
+    OnTimerTick()
+    {
+        let wave = this.waves[this.wave_index];
+        if (wave.create_enemy == null || wave.count == this.enemy_index)
+        {
+            if (++this.wave_index == this.waves.length)
+                return this.Release();
+            this.enemy_index = 0;
+            this.delay = this.waves[this.wave_index].delay;
+            return;
+        }
+        this.manager.AddEntity(wave.create_enemy(this.path));
+        this.enemy_index++;
+    }
+}
+class GameMap extends EntityManager
 {
     constructor(background_sprite, paths, waves)
     {
         this.background_sprite = background_sprite;
-        this.paths = paths;
-        this.waves = waves;
+        this.waves_spawner = new Array(0);
+        for (let i = 0; i < paths.length; i++)
+            this.waves_spawner.push(new WaveSpawner(paths[i], waves[i]));
+        this.AddEntities(...this.waves_spawner);
     }
     Render()
     {
         this.background_sprite.position = this.background_sprite.size.div(mult);
         this.background_sprite.Render();
+        super.Render();
     }
 
 }
-
-let spider_factory = new EnemyFactory(animations.spider, .4, 180, 100);
-let beetle_factory = new EnemyFactory(animations.beetle, .3, 130, 140);
+let spider_factory = new EnemyFactory(animations.spider, .4, 150, 100);
+let beetle_factory = new EnemyFactory(animations.beetle, .3, 100, 150);
+let wasp_factory = new EnemyFactory(animations.spider, .4, 125, 125);
 
 let level_manager = new EntityManager();
 
@@ -871,30 +899,23 @@ function ValidPosition(map, manager, position)
 
 let turret_sprite = sprites.machine_gun[4];
 
+
+let path = new Path(new KillableEntity(10000, vec(500, 500)), vec(0, 100), vec(700, 100), vec(700, 300));
+let w = [wave(3), wave(.1, spider_factory.Create[0], 10)];
+let spawner = new WaveSpawner(path, w);
+level_manager.AddEntity(spawner);
+
 function Update()
 {
-    let valid = false;
-    turret_sprite = valid ? MachineGun.enabled_sprite : MachineGun.disabled_sprite;
-    if (Input.mouseClick && valid)
-        level_manager.AddEntity(new MachineGun(50, 10, 230, .4, Input.mousePos));
-    if (Input.mouseClick)
-    {
-        let ex = animations.explosion_realistic.copy;
-        ex.position = Input.mousePos;
-        level_manager.AddEntity(ex);
-    }
     level_manager.Update();
 }
 
 function Render()
 {
-    sprites.track.position = sprites.track.size.div(2);
+    sprites.track.top_position = vec(0, 0);
     sprites.track.Render();
     level_manager.Render();
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
-    turret_sprite.position = Input.mousePos;
-    turret_sprite.scale = .5;
-    // turret_sprite.Render();
 }
 
 context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
