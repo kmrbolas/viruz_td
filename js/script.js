@@ -83,14 +83,12 @@ class Vector2
 };
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
-function RenderLine(color, lineWidth, origin, first, ...next)
+function RenderLine(style, lineWidth, ...positions)
 {
-    context.strokeStyle = color;
+    context.strokeStyle = style;
     context.lineWidth = lineWidth;
     context.beginPath();
-    context.moveTo(origin.x, origin.y);
-    context.lineTo(first.x, first.y);
-    next.forEach(pos => { context.lineTo(pos.x, pos.y); });
+    positions.forEach(pos => { context.lineTo(pos.x, pos.y); });
     context.stroke();
 }
 function MinDistanceFromPointToLine(v1, v2, point)
@@ -217,16 +215,43 @@ function rectangle(x, y, w, h) { return new Rectangle2D(vec(x, y), vec(w, h)); }
 function circle(cx, cy, r) { return new Circle2D(vec(cx, cy), r); }
 class Path
 {
-    constructor(core, origin, ...positions)
+    constructor(core, ...positions)
     {
         this.core = core;
-        this.origin = origin;
         this.positions = positions;
         this.positions.push(core.position);
     }
+    get origin() { return this.positions[0]; }
     GetDestinationByIndex(index)
     {
         return this.positions[Math.clamp(index, 0, this.positions.length - 1)];
+    }
+    IsInside(position, delta = 50)
+    {
+        for (let i = 0; i < this.positions.length; i++)
+            if (Vector2.distance(this.positions[i], position) < delta)
+                return true;
+        for (let i = 0; i + 1 < this.positions.length; i++)
+        {
+            const v1 = this.positions[i];
+            const v2 = this.positions[i + 1];
+            let d = position.add(v1.sub(v2).perp.normalized);
+            let v = IntersectLines(v1, v2, position, d);
+            if (v.x < 0 || v.x > 1)
+                continue;
+            if (MinDistanceFromPointToLine(v1, v2, position) < delta)
+                return true;
+        }
+        return false;
+    }
+    Render()
+    {
+        for (let i = 0; i + 1 < this.positions.length; i++)
+        {
+            const v1 = this.positions[i];
+            const v2 = this.positions[i + 1];
+            RenderLine("#F00", 1, v1, v2);
+        }
     }
 }
 class EntityManager
@@ -915,6 +940,7 @@ function Render()
     sprites.track.top_position = vec(0, 0);
     sprites.track.Render();
     level_manager.Render();
+    path.Render();
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
 }
 
