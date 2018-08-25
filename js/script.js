@@ -121,45 +121,36 @@ class Rectangle2D
         this.position = vec(position.x, position.y);
         this.size = vec(size.x, size.y);
     }
-
     get copy() { return new Rectangle2D(this.position, this.size); }
-
     get right() { return this.position.x + this.size.x; }
     get bottom() { return this.position.y + this.size.y; }
-
     get center() { return vec(this.position.x + this.size.x / 2, this.position.y + this.size.y / 2); }
     set center(value) { this.position = vec(value.x, value.y).sub(Vector2.div(this.size, 2)); }
-
     IsInside(position)
     {
         return position.x >= this.position.x && position.x <= this.right && position.y >= this.y && position.y <= this.bottom;
     }
-
     static HasCollided(r1, r2)
     {
         return (r1.position.x >= r2.position.x && r1.position.x <= r2.right && r1.position.y >= r2.position.y && r1.position.y <= r2.bottom)
             || (r2.position.x >= r1.position.x && r2.position.x <= r1.right && r2.position.y >= r1.position.y && r2.position.y <= r1.bottom);
     }
-
     Render(color = "#999", borderColor = "#000", lineWidth = 1)
     {
         this.RenderFilled(color);
         this.RenderBorder(borderColor, lineWidth);
     }
-
     RenderFilled(color)
     {
         context.fillStyle = color;
         context.fillRect(this.position.x, this.position.y, this.size.x, this.size.y);
     }
-
     RenderBorder(color, lineWidth)
     {
         context.strokeStyle = color;
         context.lineWidth = lineWidth;
         context.strokeRect(this.position.x, this.position.y, this.size.x, this.size.y);
     }
-
     RenderLifeBar(m, n)
     {
         this.Render("#999", "#000", 1);
@@ -178,20 +169,15 @@ class Circle2D
         this.center_position = vec(center_position.x, center_position.y);
         this.radius = radius;
     }
-
     get copy() { return new Circle2D(this.center_position, this.radius); }
-
     get position() { return Vector2.sub(this.center_position, vec(this.radius, this.radius)); }
     set position(value) { this.center_position = vec(value.x + this.radius, value.y + this.radius); }
-
     IsInside(position) { return Vector2.distance(this.center_position, position) <= this.radius; }
-
     Render(color = "#999", borderColor = "#000", lineWidth = 1, start = 0, end = 2 * Math.PI)
     {
         this.RenderFilled(color, start, end);
         this.RenderBorder(borderColor, lineWidth, start, end);
     }
-
     RenderFilled(color, start = 0, end = 2 * Math.PI)
     {
         context.fillStyle = color;
@@ -199,7 +185,6 @@ class Circle2D
         context.arc(this.center_position.x, this.center_position.y, this.radius, start, end);
         context.fill();
     }
-
     RenderBorder(color, lineWidth = 1, start = 0, end = 2 * Math.PI)
     {
         context.strokeStyle = color;
@@ -586,6 +571,7 @@ let sprites =
             Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png")],
     machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
     anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
+    rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
     rocket: new Sprite("images/projectiles/rocket/0.png"),
     bullet: new Sprite("images/projectiles/bullet/0.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
@@ -636,12 +622,13 @@ let animations =
 }
 class EnemyFactory
 {
-    constructor(anims, base_scale, base_speed, base_life)
+    constructor(anims, base_scale, base_speed, base_life, type = 0)
     {
         this.anims = anims;
         this.base_scale = base_scale;
         this.base_speed = base_speed;
         this.base_life = base_life;
+        this.type = type;
         this.Create = [ this.CreateByRank.bind(this, 0),
                         this.CreateByRank.bind(this, 1),
                         this.CreateByRank.bind(this, 2),
@@ -652,8 +639,9 @@ class EnemyFactory
     {
         let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed * Math.pow(.9, rank), this.base_life * Math.pow(2, rank), path);
         e.factory = this;
+        e.type = this.type;
         e.rank = rank;
-        if (rank == 2 || rank == 3)
+        if (rank >= 2)
         {
             e.OnDeath = function()
             {
@@ -730,6 +718,7 @@ class Rocket extends Projectile
     {
         sprites.rocket.transform = this.transform;
         sprites.rocket.Render();
+        // new Circle2D(this.position, this.aoe).RenderBorder("#F00", 2);
     }
 }
 class Turret extends Entity
@@ -797,14 +786,11 @@ class MachineGun extends Turret
         let a = this.left ? -.5 : .5;
         return Vector2.add(this.position, Vector2.angleVector(this.rotation + a).mult(30 * this.scale));
     }
-    create_bullet(target, speed, position, angle)
-    {
-        return new Bullet(target, this.damage, speed, position, angle);
-    }
     Shoot()
     {
         this.left = !this.left;
         this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
+        this.manager.AddEntity(new Bullet(this.target, this.damage, this.bullet_speed, this.bullet_position));
         super.Shoot();
     }
     Render()
@@ -822,19 +808,14 @@ class RocketLauncher extends Turret
         super(speed, range, fov, position)
         this.damage = damage;
         this.aoe = aoe;
-        this.sprite = sprites.anti_air[0];
+        this.sprite = sprites.rocket_launcher[0];
         this.left = false;
         this.scale = .5;
     }
-    get bullet_speed() { return this.speed * 200; }
-    create_bullet(target, speed, position, angle)
-    {
-        return new Rocket(target, this.damage, this.aoe, speed, position, angle);
-    }
+    get bullet_speed() { return this.speed * 400; }
     Shoot()
     {
-        this.sprite = sprites.anti_air[1];
-        super.Shoot();
+        this.manager.AddEntity(new Rocket(this.target, this.damage, this.aoe, this.bullet_speed, this.bullet_position));
     }
     UpdateTargets()
     {
@@ -847,7 +828,6 @@ class RocketLauncher extends Turret
     }
     Render()
     {
-        if (this.targets.length == 0) this.sprite = sprites.anti_air[0];
         this.sprite.transform = this.transform;
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
@@ -897,9 +877,10 @@ class GameMap extends EntityManager
 }
 let spider_factory = new EnemyFactory(animations.spider, .4, 150, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 100, 150);
-let wasp_factory = new EnemyFactory(animations.spider, .4, 125, 125);
+let wasp_factory = new EnemyFactory(animations.spider, .4, 125, 125, 1);
 
 let level_manager = new EntityManager();
+// level_manager.AddEntity(new RocketLauncher(30, 100, 1, 300, .4, vec(300, 200)));
 
 function ValidPosition(map, manager, position)
 {
@@ -924,9 +905,8 @@ function ValidPosition(map, manager, position)
 
 let turret_sprite = sprites.machine_gun[4];
 
-
 let path = new Path(new KillableEntity(10000, vec(500, 500)), vec(0, 100), vec(700, 100), vec(700, 300));
-let w = [wave(3), wave(.1, spider_factory.Create[0], 10)];
+let w = [wave(3), wave(.5, spider_factory.Create[0], 10)];
 let spawner = new WaveSpawner(path, w);
 level_manager.AddEntity(spawner);
 
@@ -944,15 +924,13 @@ function Render()
     rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
 }
 
-context.clear = function() { this.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); }
-
 let lastRender = 0;
 function loop(elapsed)
 {
     Time.unscaledDeltaTime = Math.min(0.05, (elapsed - lastRender) / 1000);
     Time.deltaTime = Time.unscaledDeltaTime * Time.timeScale;
     lastRender = elapsed;
-    context.clear();
+    context.clearRect(0, 0, context.canvas.clientWidth, context.canvas.clientHeight);
     Update();
     Render();
     Input.mouseClick = false;
