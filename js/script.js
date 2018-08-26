@@ -637,7 +637,7 @@ class EnemyFactory
     }
     CreateByRank(rank, path = null)
     {
-        let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed * Math.pow(.9, rank), this.base_life * Math.pow(2, rank), path);
+        let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed, this.base_life * Math.pow(2, rank), path);
         e.factory = this;
         e.type = this.type;
         e.rank = rank;
@@ -803,6 +803,8 @@ class MachineGun extends Turret
 }
 class RocketLauncher extends Turret
 {
+    static get enabled_sprite() { return sprites.machine_gun[3]; }
+    static get disabled_sprite() { return sprites.machine_gun[4]; }
     constructor(damage, aoe, speed, range, fov, position)
     {
         super(speed, range, fov, position)
@@ -875,38 +877,14 @@ class GameMap extends EntityManager
     }
 
 }
-let spider_factory = new EnemyFactory(animations.spider, .4, 150, 100);
-let beetle_factory = new EnemyFactory(animations.beetle, .3, 100, 150);
-let wasp_factory = new EnemyFactory(animations.spider, .4, 125, 125, 1);
+let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
+let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
+let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
 
 let level_manager = new EntityManager();
-// level_manager.AddEntity(new RocketLauncher(30, 100, 1, 300, .4, vec(300, 200)));
 
-function ValidPosition(map, manager, position)
-{
-    let positions = new Array(map.path.origin);
-    map.path.positions.forEach(pos => { positions.push(pos); });
-    for (let i = 0; i < positions.length; i++)
-        if (Vector2.distance(positions[i], position) < 50)
-            return false;
-    for (let i = 0; i + 1 < positions.length; i++) {
-        const v1 = positions[i];
-        const v2 = positions[i + 1];
-        let d = position.add(v1.sub(v2).perp.normalized);
-        let v = IntersectLines(v1, v2, position, d);
-        if (v.x < 0 || v.x > 1)
-            continue;
-        if (MinDistanceFromPointToLine(v1, v2, position) < 50)
-            return false;
-    }
-    let turrets = manager.OverlapCircle(new Circle2D(position, 40), t => { return t instanceof Turret; });
-    return turrets.length > 0;
-}
-
-let turret_sprite = sprites.machine_gun[4];
-
-let path = new Path(new KillableEntity(10000, vec(500, 500)), vec(0, 100), vec(700, 100), vec(700, 300));
-let w = [wave(3), wave(.5, spider_factory.Create[0], 10)];
+let path = new Path(new KillableEntity(10000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450));
+let w = [wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[2], 3)];
 let spawner = new WaveSpawner(path, w);
 level_manager.AddEntity(spawner);
 
