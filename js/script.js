@@ -870,6 +870,9 @@ class EnemyFactory
             e.OnDeath = function()
             {
                 this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1, this.path), this.factory.CreateByRank(this.rank - 1, this.path));
+                let ex = animations.explosion.copy;
+                ex.position = this.position;
+                this.manager.AddEntity(ex);
                 this.Release();
             }
         }
@@ -929,9 +932,14 @@ function Render()
 {
     sprites.track.Render();
     current_level.Render();
-    console.log(selected_entity);
     if (selected_entity instanceof Turret)
+    {
         selected_entity.RenderRange();
+    }
+    else if (selected_entity instanceof Enemy)
+    {
+        selected_entity.life = 0;
+    }
 }
 
 let lastRender = 0;
