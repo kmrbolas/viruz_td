@@ -83,7 +83,7 @@ class Vector2
 };
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
-function RenderLine(style, lineWidth, ...positions)
+function RenderLines(style, lineWidth, ...positions)
 {
     context.strokeStyle = style;
     context.lineWidth = lineWidth;
@@ -196,49 +196,7 @@ class Circle2D
 
 }
 function vec(x, y) { return new Vector2(x, y); }
-function rectangle(x, y, w, h) { return new Rectangle2D(vec(x, y), vec(w, h)); }
-function circle(cx, cy, r) { return new Circle2D(vec(cx, cy), r); }
-class Path
-{
-    constructor(core, ...positions)
-    {
-        this.core = core;
-        this.positions = positions;
-        this.positions.push(core.position);
-    }
-    get origin() { return this.positions[0]; }
-    GetDestinationByIndex(index)
-    {
-        return this.positions[Math.clamp(index, 0, this.positions.length - 1)];
-    }
-    IsInside(position, delta = 50)
-    {
-        for (let i = 0; i < this.positions.length; i++)
-            if (Vector2.distance(this.positions[i], position) < delta)
-                return true;
-        for (let i = 0; i + 1 < this.positions.length; i++)
-        {
-            const v1 = this.positions[i];
-            const v2 = this.positions[i + 1];
-            let d = position.add(v1.sub(v2).perp.normalized);
-            let v = IntersectLines(v1, v2, position, d);
-            if (v.x < 0 || v.x > 1)
-                continue;
-            if (MinDistanceFromPointToLine(v1, v2, position) < delta)
-                return true;
-        }
-        return false;
-    }
-    Render()
-    {
-        for (let i = 0; i + 1 < this.positions.length; i++)
-        {
-            const v1 = this.positions[i];
-            const v2 = this.positions[i + 1];
-            RenderLine("#F00", 1, v1, v2);
-        }
-    }
-}
+function rectangle(pos, size) { return new Rectangle2D(pos, size); }
 class EntityManager
 {
     constructor(...entities)
@@ -364,6 +322,48 @@ class Sprite extends Entity
         return result;
     }
 }
+class Path extends Entity
+{
+    constructor(background_sprite, core, ...positions)
+    {
+        super();
+        this.background_sprite = background_sprite;
+        this.core = core;
+        this.positions = positions;
+        this.positions.push(core.position);
+    }
+    get origin() { return this.positions[0]; }
+    Render()
+    {
+        this.background_sprite.top_position = this.position;
+        this.background_sprite.Render();
+        this.core.Render();
+        // RenderLines("#F00", 1, ...this.positions);
+    }
+    GetDestinationByIndex(index)
+    {
+        return this.positions[Math.clamp(index, 0, this.positions.length - 1)];
+    }
+    IsInside(position, delta = 50)
+    {
+        for (let i = 0; i < this.positions.length; i++)
+            if (Vector2.distance(this.positions[i], position) < delta)
+                return true;
+        for (let i = 0; i + 1 < this.positions.length; i++)
+        {
+            const v1 = this.positions[i];
+            const v2 = this.positions[i + 1];
+            let d = position.add(v1.sub(v2).perp.normalized);
+            let v = IntersectLines(v1, v2, position, d);
+            if (v.x < 0 || v.x > 1)
+                continue;
+            if (MinDistanceFromPointToLine(v1, v2, position) < delta)
+                return true;
+        }
+        return false;
+    }
+    
+}
 class Timer extends Entity
 {
     constructor(delay, OnTimerTick = null)
@@ -376,6 +376,7 @@ class Timer extends Entity
     }
     get rate() { return 1 / this.delay; }
     set rate(value) { this.delay = 1 / value; }
+    get to_tick() { return this.delay - this.elapsed; }
     OnTimerTick()
     {
         this.Release();
@@ -446,7 +447,7 @@ class KillableEntity extends Entity
         super.Render();
         this.RenderLifeBar();
     }
-    RenderLifeBar(offset = 30, r = rectangle(0, 0, 25, 5), text = false)
+    RenderLifeBar(offset = 30, r = rectangle(vec(0, 0), vec(25, 5)), text = false)
     {
         r.center = this.position;
         r.center = Vector2.sub(r.center, vec(0, offset));
@@ -463,7 +464,7 @@ class Enemy extends KillableEntity
 {
     constructor(speed, max_life, path = null)
     {
-        super(max_life, path == null ? vec(0, 0) : path.origin);
+        super(max_life, path == null ? vec(0, 0) : path.origin, 0, 1);
         this.speed = speed;
         this.traveled_distance = 0;
         this.current_index = 0;
@@ -620,38 +621,6 @@ let animations =
     explosion: new Animation(30, ...sprites.explosion),
     explosion_realistic: new Animation(120, ...sprites.explosion_realistic),
 }
-class EnemyFactory
-{
-    constructor(anims, base_scale, base_speed, base_life, type = 0)
-    {
-        this.anims = anims;
-        this.base_scale = base_scale;
-        this.base_speed = base_speed;
-        this.base_life = base_life;
-        this.type = type;
-        this.Create = [ this.CreateByRank.bind(this, 0),
-                        this.CreateByRank.bind(this, 1),
-                        this.CreateByRank.bind(this, 2),
-                        this.CreateByRank.bind(this, 3),
-                        this.CreateByRank.bind(this, 4)];
-    }
-    CreateByRank(rank, path = null)
-    {
-        let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed, this.base_life * Math.pow(2, rank), path);
-        e.factory = this;
-        e.type = this.type;
-        e.rank = rank;
-        if (rank >= 2)
-        {
-            e.OnDeath = function()
-            {
-                this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1, this.path), this.factory.CreateByRank(this.rank - 1, this.path));
-                this.Release();
-            }
-        }
-        return e;
-    }
-}
 class Projectile extends Entity
 {
     constructor(target, speed, position = vec(0, 0), rotation = 0, scale = 1, render_layer = 0)
@@ -721,19 +690,18 @@ class Rocket extends Projectile
         // new Circle2D(this.position, this.aoe).RenderBorder("#F00", 2);
     }
 }
-class Turret extends Entity
+class Turret extends Timer
 {
-    constructor(speed, range, fov, position)
+    constructor(rate, range, fov, position)
     {
-        super(position, 0, 5);
+        super(1 / rate);
+        this.render_layer = 5;
+        this.position = position;
         this.range = range;
         this.fov = fov;
         this.targets = Array(0);
-        this.timer = new Timer(1 / speed, () => { if (this.targets.length > 0) this.Shoot(); });
     }
-    get speed() { return this.timer.rate; }
-    set speed(value) { this.timer.rate = value; }
-    get bullet_speed() { return this.speed * 50; }
+    get bullet_speed() { return this.rate * 50; }
     get bullet_position() { return this.position; }
     get target() { return this.targets[0]; }
     Shoot()
@@ -742,31 +710,44 @@ class Turret extends Entity
     }
     UpdateRotation()
     {
-        if (this.targets.length > 0)
-            this.FaceTo(this.targets[0].position, 10 * Time.deltaTime);
+        this.FaceTo(this.targets[0].position, 10 * Time.deltaTime);
     }
     UpdateTargets()
     {
         this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => { return e instanceof Enemy; });
         this.targets = this.targets.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
+    ValidateTargets()
+    {
+        this.targets.remove_if(e => { return Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) > this.fov / 2; });
+    }
     Update()
     {
+        super.Update();
         this.UpdateTargets();
+        if (this.targets.length == 0)
+            return;
         this.UpdateRotation();
-        this.targets.remove_if(e => { return Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) > this.fov / 2; });
-        this.timer.Update();
+        this.ValidateTargets();
     }
-    RenderRange(color = "#F00")
+    OnTimerTick()
+    {
+        if (this.targets.length > 0)
+            this.Shoot();
+    }
+    RenderRange(color = "#000")
     {
         let d = this.fov / 2;
         let a1 = this.rotation - d;
         let a2 = this.rotation + d;
         let dir1 = Vector2.angleVector(a1).mult(this.range).add(this.position);
         let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.position);
-        RenderLine(color, 1, dir1, this.position, dir2);
+        RenderLines(color, 1, dir1, this.position, dir2);
         let c = new Circle2D(this.position, this.range);
-        c.RenderBorder(color, 1, a1, a2);
+        context.save();
+        context.globalAlpha = .5;
+        c.Render("#FFF", color);
+        context.restore();
     }
 }
 class MachineGun extends Turret
@@ -783,8 +764,7 @@ class MachineGun extends Turret
     }
     get bullet_position()
     {
-        let a = this.left ? -.5 : .5;
-        return Vector2.add(this.position, Vector2.angleVector(this.rotation + a).mult(30 * this.scale));
+        return Vector2.add(this.position, Vector2.angleVector(this.rotation + (this.left ? -.5 : .5)).mult(30 * this.scale));
     }
     Shoot()
     {
@@ -803,18 +783,17 @@ class MachineGun extends Turret
 }
 class RocketLauncher extends Turret
 {
-    static get enabled_sprite() { return sprites.machine_gun[3]; }
-    static get disabled_sprite() { return sprites.machine_gun[4]; }
-    constructor(damage, aoe, speed, range, fov, position)
+    constructor(damage, aoe, rate, range, fov, position)
     {
-        super(speed, range, fov, position)
+        super(rate, range, fov, position)
         this.damage = damage;
         this.aoe = aoe;
         this.sprite = sprites.rocket_launcher[0];
         this.left = false;
         this.scale = .5;
     }
-    get bullet_speed() { return this.speed * 400; }
+    get bullet_speed() { return this.rate * 400; }
+    get bullet_position() { return this.position.add(Vector2.angleVector(this.rotation).mult(this.scale * 50)); }
     Shoot()
     {
         this.manager.AddEntity(new Rocket(this.target, this.damage, this.aoe, this.bullet_speed, this.bullet_position));
@@ -831,6 +810,8 @@ class RocketLauncher extends Turret
     Render()
     {
         this.sprite.transform = this.transform;
+        if (this.targets.length > 0)
+            this.sprite.position = this.position.add(Vector2.angleVector(this.rotation).mult(((this.delay - this.to_tick) / this.delay) * 10 ));
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
 }
@@ -843,6 +824,10 @@ class WaveSpawner extends Timer
         this.waves = waves;
         this.wave_index = 0;
         this.enemy_index = 0;
+    }
+    Render()
+    {
+        this.path.Render();
     }
     OnTimerTick()
     {
@@ -859,21 +844,45 @@ class WaveSpawner extends Timer
         this.enemy_index++;
     }
 }
-class GameMap extends EntityManager
+class EnemyFactory
 {
-    constructor(background_sprite, paths, waves)
+    constructor(anims, base_scale, base_speed, base_life, type = 0)
     {
-        this.background_sprite = background_sprite;
-        this.waves_spawner = new Array(0);
-        for (let i = 0; i < paths.length; i++)
-            this.waves_spawner.push(new WaveSpawner(paths[i], waves[i]));
-        this.AddEntities(...this.waves_spawner);
+        this.anims = anims;
+        this.base_scale = base_scale;
+        this.base_speed = base_speed;
+        this.base_life = base_life;
+        this.type = type;
+        this.Create = [ this.CreateByRank.bind(this, 0),
+                        this.CreateByRank.bind(this, 1),
+                        this.CreateByRank.bind(this, 2),
+                        this.CreateByRank.bind(this, 3),
+                        this.CreateByRank.bind(this, 4)];
     }
-    Render()
+    CreateByRank(rank, path = null)
     {
-        this.background_sprite.position = this.background_sprite.size.div(mult);
-        this.background_sprite.Render();
-        super.Render();
+        let e = new AnimEnemy(this.anims[rank], this.base_scale + .1 * rank, this.base_speed, this.base_life * Math.pow(2, rank), path);
+        e.factory = this;
+        e.type = this.type;
+        e.rank = rank;
+        if (rank >= 2)
+        {
+            e.OnDeath = function()
+            {
+                this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1, this.path), this.factory.CreateByRank(this.rank - 1, this.path));
+                this.Release();
+            }
+        }
+        return e;
+    }
+}
+class TurretFactory
+{
+    constructor(create_fn, enabled_sprite, disabled_sprite)
+    {
+        this.create_fn = create_fn;
+        this.enabled_sprite = enabled_sprite;
+        this.disabled_sprite = disabled_sprite;
     }
 
 }
@@ -881,25 +890,48 @@ let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
 let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
 
-let level_manager = new EntityManager();
+let paths =
+[
+    new Path(sprites.track, new KillableEntity(1000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450))
+];
+let waves = 
+[
+    [wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[2], 3)]
+];
+let wave_paths =
+[
+    new WaveSpawner(paths[0], waves[0])
+];
+let levels = 
+[
+    new EntityManager(wave_paths[0])
+];
 
-let path = new Path(new KillableEntity(10000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450));
-let w = [wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[2], 3)];
-let spawner = new WaveSpawner(path, w);
-level_manager.AddEntity(spawner);
+let current_level = levels[0];
+current_level.AddEntity(new RocketLauncher(30, 50, 3, 500, .2, vec(200, 200)));
+
+let selected_entity = null;
 
 function Update()
 {
-    level_manager.Update();
+    current_level.Update();
+    if (Input.mouseClick)
+    {
+        let entities = current_level.OverlapCircle(new Circle2D(Input.mousePos, 20));
+        entities = entities.sort((a, b) => {
+            return Vector2.distance(Input.mousePos, b.position) - Vector2.distance(Input.mousePos, a.position);
+        });
+        selected_entity = entities.length == 0 ? null : entities[0];
+    }
 }
 
 function Render()
 {
-    sprites.track.top_position = vec(0, 0);
     sprites.track.Render();
-    level_manager.Render();
-    path.Render();
-    rectangle(0, 0, 800, 600).RenderBorder("#000", 1);
+    current_level.Render();
+    console.log(selected_entity);
+    if (selected_entity instanceof Turret)
+        selected_entity.RenderRange();
 }
 
 let lastRender = 0;
