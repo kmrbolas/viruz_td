@@ -128,7 +128,7 @@ class Rectangle2D
     set center(value) { this.position = vec(value.x, value.y).sub(Vector2.div(this.size, 2)); }
     IsInside(position)
     {
-        return position.x >= this.position.x && position.x <= this.right && position.y >= this.y && position.y <= this.bottom;
+        return position.x >= this.position.x && position.x <= this.right && position.y >= this.position.y && position.y <= this.bottom;
     }
     static HasCollided(r1, r2)
     {
@@ -194,6 +194,19 @@ class Circle2D
         context.stroke();
     }
 
+}
+class GUI
+{
+    static Button(position, size, text)
+    {
+        let rect = new Rectangle2D(position, size);
+        rect.Render("#999", "#000", 1);
+        context.fillStyle="#000";
+        context.font='10px sans-serif';
+        context.textAlign='center';
+        context.fillText(text, rect.center.x, rect.center.y);
+        return Input.mouseClick && rect.IsInside(Input.mousePos);
+    }
 }
 function vec(x, y) { return new Vector2(x, y); }
 function rectangle(pos, size) { return new Rectangle2D(pos, size); }
@@ -289,6 +302,85 @@ class Entity
         this.position = Vector2.add(this.position, direction.mult(amount));
     }
 
+}
+class Button extends Entity
+{
+    constructor(position, size, text, color = "#777", border_color = "#000", border_size = 1, render_layer = 30)
+    {
+        super(position, 0, 1, render_layer);
+        this.size = vec(size.x, size.y);
+        this.text = text;
+        this.color = color;
+        this.border_color = border_color;
+        this.border_size = border_size;
+    }
+    get right() { return this.position.x + this.size.x; }
+    get bottom() { return this.position.y + this.size.y; }
+    get center() { return vec(this.position.x + this.size.x / 2, this.position.y + this.size.y / 2); }
+    set center(value) { this.position = vec(value.x, value.y).sub(Vector2.div(this.size, 2)); }
+    IsInside(position)
+    {
+        return position.x >= this.position.x && position.x <= this.right && position.y >= this.position.y && position.y <= this.bottom;
+    }
+    OnClick()
+    {
+
+    }
+    Update()
+    {
+        if (Input.mouseClick && this.IsInside(Input.mousePos))
+            this.OnClick();
+    }
+    Render()
+    {
+        this.RenderFilled();
+        this.RenderBorder();
+        this.RenderText();
+    }
+    RenderFilled()
+    {
+        context.fillStyle = this.color;
+        context.fillRect(this.position.x, this.position.y, this.size.x, this.size.y);
+    }
+    RenderBorder()
+    {
+        context.strokeStyle = this.border_color;
+        context.lineWidth = this.border_size;
+        context.strokeRect(this.position.x, this.position.y, this.size.x, this.size.y);
+    }
+    RenderText()
+    {
+        context.fillStyle=this.border_color;
+        context.font='10px sans-serif';
+        context.textAlign='center';
+        context.fillText(this.text, this.center.x, this.center.y);
+    }
+
+}
+class DropDownMenu extends Entity
+{
+    constructor(texts, position = vec(0, 0), size = vec(100, 15), render_layer = 30)
+    {
+        super(position, 0, 1, render_layer);
+        this.size = size;
+        this.buttons = new Array(0);
+        for (let i = 0; i < texts.length; i++)
+            this.buttons.push(new Button(position, size, texts[i]));
+    }
+    Update()
+    {
+        for (let i = 0; i < this.buttons.length; i++)
+        {
+            this.buttons[i].size = this.size;
+            this.buttons[i].position = Vector2.add(this.position, vec(0, this.size.y + 1).mult(i));
+            this.buttons[i].Update();
+        }
+    }
+    Render()
+    {
+        for (let i = 0; i < this.buttons.length; i++)
+            this.buttons[i].Render();
+    }
 }
 class Sprite extends Entity
 {
@@ -917,7 +1009,6 @@ let selected_entity = null;
 
 function Update()
 {
-    current_level.Update();
     if (Input.mouseClick)
     {
         let entities = current_level.OverlapCircle(new Circle2D(Input.mousePos, 20));
@@ -926,6 +1017,7 @@ function Update()
         });
         selected_entity = entities.length == 0 ? null : entities[0];
     }
+    current_level.Update();
 }
 
 function Render()
@@ -935,6 +1027,11 @@ function Render()
     if (selected_entity instanceof Turret)
     {
         selected_entity.RenderRange();
+        if (GUI.Button(selected_entity.position, vec(100, 25), "Upgrade fire rate"))
+        {
+            selected_entity.rate = 10;
+            selected_entity = null;
+        }
     }
     else if (selected_entity instanceof Enemy)
     {
