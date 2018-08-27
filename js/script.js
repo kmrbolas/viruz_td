@@ -210,73 +210,13 @@ class GUI
 }
 function vec(x, y) { return new Vector2(x, y); }
 function rectangle(pos, size) { return new Rectangle2D(pos, size); }
-class EntityManager
+class Transformable
 {
-    constructor(...entities)
-    {
-        this.entities = Array(0);
-        this.enabled_entities = Array(0);
-        this.AddEntities(...entities);
-    }
-    AddEntity(entity)
-    {
-        if (this.entities.find(e => { return e === entity; }) !== undefined)
-            return;
-        entity.Release();
-        entity.manager = this;
-        this.entities.push(entity);
-    }
-    AddEntities(...entities)
-    {
-        entities.forEach(e => { this.AddEntity(e); });
-    }
-    RemoveEntity(entity)
-    {
-        this.entities.remove_if(e => {
-            if (e === entity)
-            {
-                e.manager = null;
-                return true;
-            }
-            return false;
-        })
-    }
-    RemoveEntities(...entities)
-    {
-        entities.forEach(e => { this.RemoveEntity(e); });
-    }
-    OverlapCircle(c, callback = e => { return true; })
-    {
-        return this.enabled_entities.filter(e => {
-            return (e instanceof Entity) && Vector2.distance(e.position, c.center_position) <= c.radius && callback(e);
-        });
-    }
-    Update()
-    {
-        this.enabled_entities = this.entities.filter(e => { return e.enabled; });
-        this.enabled_entities.forEach(e => { e.Update(); });
-    }
-    Render()
-    {
-        let entities = this.enabled_entities.sort((a, b) => { return a.render_layer - b.render_layer; });
-        entities.forEach(e => { e.Render(); });
-    }
-    Release()
-    {
-        this.RemoveEntities(...this.entities);
-        this.enabled_entities = this.entities;
-    }
-
-}
-class Entity
-{
-    constructor(position = vec(0, 0), rotation = 0, scale = 1, render_layer = 0, enabled = true)
+    constructor(position = vec(0, 0), rotation = 0, scale = 1)
     {
         this.position = position;
         this.rotation = rotation;
         this.scale = scale;
-        this.render_layer = render_layer;
-        this.enabled = enabled;
     }
     get transform()
     {
@@ -288,9 +228,6 @@ class Entity
         this.rotation = value.rotation;
         this.scale = value.scale;
     }
-    Release() { if (this.manager != null) this.manager.RemoveEntity(this); }
-    Update() {  }
-    Render() {  }
     FaceTo(position, t = 1)
     {
         let dir = Vector2.sub(position, this.position).normalized;
@@ -303,160 +240,7 @@ class Entity
     }
 
 }
-class Button extends Entity
-{
-    constructor(position, size, text, color = "#777", border_color = "#000", border_size = 1, render_layer = 30)
-    {
-        super(position, 0, 1, render_layer);
-        this.size = vec(size.x, size.y);
-        this.text = text;
-        this.color = color;
-        this.border_color = border_color;
-        this.border_size = border_size;
-    }
-    get right() { return this.position.x + this.size.x; }
-    get bottom() { return this.position.y + this.size.y; }
-    get center() { return vec(this.position.x + this.size.x / 2, this.position.y + this.size.y / 2); }
-    set center(value) { this.position = vec(value.x, value.y).sub(Vector2.div(this.size, 2)); }
-    IsInside(position)
-    {
-        return position.x >= this.position.x && position.x <= this.right && position.y >= this.position.y && position.y <= this.bottom;
-    }
-    OnClick()
-    {
-
-    }
-    Update()
-    {
-        if (Input.mouseClick && this.IsInside(Input.mousePos))
-            this.OnClick();
-    }
-    Render()
-    {
-        this.RenderFilled();
-        this.RenderBorder();
-        this.RenderText();
-    }
-    RenderFilled()
-    {
-        context.fillStyle = this.color;
-        context.fillRect(this.position.x, this.position.y, this.size.x, this.size.y);
-    }
-    RenderBorder()
-    {
-        context.strokeStyle = this.border_color;
-        context.lineWidth = this.border_size;
-        context.strokeRect(this.position.x, this.position.y, this.size.x, this.size.y);
-    }
-    RenderText()
-    {
-        context.fillStyle=this.border_color;
-        context.font='10px sans-serif';
-        context.textAlign='center';
-        context.fillText(this.text, this.center.x, this.center.y);
-    }
-
-}
-class DropDownMenu extends Entity
-{
-    constructor(texts, position = vec(0, 0), size = vec(100, 15), render_layer = 30)
-    {
-        super(position, 0, 1, render_layer);
-        this.size = size;
-        this.buttons = new Array(0);
-        for (let i = 0; i < texts.length; i++)
-            this.buttons.push(new Button(position, size, texts[i]));
-    }
-    Update()
-    {
-        for (let i = 0; i < this.buttons.length; i++)
-        {
-            this.buttons[i].size = this.size;
-            this.buttons[i].position = Vector2.add(this.position, vec(0, this.size.y + 1).mult(i));
-            this.buttons[i].Update();
-        }
-    }
-    Render()
-    {
-        for (let i = 0; i < this.buttons.length; i++)
-            this.buttons[i].Render();
-    }
-}
-class Sprite extends Entity
-{
-    constructor(path)
-    {
-        super();
-        this.image = new Image();
-        this.image.src = path;
-    }
-    get top_position() { return Vector2.sub(this.position, this.size.div(2)); }
-    set top_position(value) { this.position = Vector2.add(value, this.size.div(2)); }
-    get size() { return vec(this.image.width, this.image.height); }
-    set size(value)
-    {
-        this.image.width = value.x;
-        this.image.height = value.y;
-    }
-    Render()
-    {
-        context.save();
-        context.translate(this.position.x, this.position.y);
-        context.rotate(this.rotation);
-        let size = vec(this.image.width * this.scale, this.image.height * this.scale);
-        context.drawImage(this.image, -size.x / 2, -size.y / 2, size.x, size.y);
-        context.restore();
-    }
-    static CreateArray(...images)
-    {
-        let result = new Array(0);
-        images.forEach(t => { result.push(new Sprite(t)); });
-        return result;
-    }
-}
-class Path extends Entity
-{
-    constructor(background_sprite, core, ...positions)
-    {
-        super();
-        this.background_sprite = background_sprite;
-        this.core = core;
-        this.positions = positions;
-        this.positions.push(core.position);
-    }
-    get origin() { return this.positions[0]; }
-    Render()
-    {
-        this.background_sprite.top_position = this.position;
-        this.background_sprite.Render();
-        this.core.Render();
-        // RenderLines("#F00", 1, ...this.positions);
-    }
-    GetDestinationByIndex(index)
-    {
-        return this.positions[Math.clamp(index, 0, this.positions.length - 1)];
-    }
-    IsInside(position, delta = 50)
-    {
-        for (let i = 0; i < this.positions.length; i++)
-            if (Vector2.distance(this.positions[i], position) < delta)
-                return true;
-        for (let i = 0; i + 1 < this.positions.length; i++)
-        {
-            const v1 = this.positions[i];
-            const v2 = this.positions[i + 1];
-            let d = position.add(v1.sub(v2).perp.normalized);
-            let v = IntersectLines(v1, v2, position, d);
-            if (v.x < 0 || v.x > 1)
-                continue;
-            if (MinDistanceFromPointToLine(v1, v2, position) < delta)
-                return true;
-        }
-        return false;
-    }
-    
-}
-class Timer extends Entity
+class Timer
 {
     constructor(delay, OnTimerTick = null)
     {
@@ -468,10 +252,12 @@ class Timer extends Entity
     }
     get rate() { return 1 / this.delay; }
     set rate(value) { this.delay = 1 / value; }
+    get frequency() { return 1 / this.delay; }
+    set frequency(value) { this.delay = 1 / value; }
     get to_tick() { return this.delay - this.elapsed; }
     OnTimerTick()
     {
-        this.Release();
+
     }
     Update()
     {
@@ -483,35 +269,7 @@ class Timer extends Entity
     }
 
 }
-class Animation extends Timer
-{
-    constructor(rate, ...sprites)
-    {
-        super(1 / rate);
-        this.sprites = sprites;
-        this.current_index = 0;
-    }
-    get copy() { return new Animation(this.rate, ...this.sprites); }
-    get current_sprite() { return this.sprites[this.current_index]; }
-    OnTimerTick()
-    {
-        if (++this.current_index == this.sprites.length)
-            this.Release();
-        this.current_index %= this.sprites.length;
-    }
-    Render()
-    {
-        this.current_sprite.transform = this.transform;
-        this.current_sprite.Render(this.position, this.rotation, this.scale);
-    }
-    RenderUpdate()
-    {
-        this.Render();
-        this.Update();
-    }
-
-}
-class KillableEntity extends Entity
+class KillableEntity extends Transformable
 {
     constructor(max_life, position = vec(0, 0), rotation = 0, render_layer = 0)
     {
@@ -533,10 +291,9 @@ class KillableEntity extends Entity
     get is_alive() { return this.life > 0; }
     get is_dead() { return !this.is_alive; }
     OnLifeChanged(value) {  }
-    OnDeath() { this.Release(); }
+    OnDeath() {  }
     Render()
     {
-        super.Render();
         this.RenderLifeBar();
     }
     RenderLifeBar(offset = 30, r = rectangle(vec(0, 0), vec(25, 5)), text = false)
@@ -554,46 +311,15 @@ class KillableEntity extends Entity
 }
 class Enemy extends KillableEntity
 {
-    constructor(speed, max_life, path = null)
+    constructor(speed, max_life)
     {
         super(max_life, path == null ? vec(0, 0) : path.origin, 0, 1);
         this.speed = speed;
         this.traveled_distance = 0;
         this.current_index = 0;
-        this.path = path;
         this.org = Math.random() * 30 - 15;
     }
     get turn_speed() { return this.speed / 30; }
-    get destination()
-    {
-        return this.path == null ? this.position : this.path.GetDestinationByIndex(this.current_index);
-    }
-    get destination_direction()
-    {
-        return Vector2.sub(this.destination, this.position).normalized;
-    }
-    get core_reached()
-    {
-        return this.path == null || this.path.positions.length == this.current_index;
-    }
-    Update()
-    {
-        if (this.core_reached)
-            return this.OnReachCore(this.path.core);
-        let dest = this.destination;
-        let perp = this.destination_direction.perp.mult(this.org);
-        dest = Vector2.add(dest, perp);
-        let delta = this.speed * Time.deltaTime;
-        this.traveled_distance += delta;
-        this.MoveTo(dest, delta);
-        this.FaceTo(dest, this.turn_speed * Time.deltaTime);
-        if (Vector2.distance(this.position, dest) <= 15 + delta)
-        {
-            this.current_index++;
-            this.org = -this.org;
-        }
-
-    }
     OnReachCore(core)
     {
         core.life -= this.life;
@@ -621,6 +347,70 @@ class Enemy extends KillableEntity
         })
         this.manager.AddEntities(...to_spawn);
     }
+}
+class Path
+{
+    constructor(core, ...positions)
+    {
+        this.core = core;
+        this.positions = positions;
+        this.positions.push(core.position);
+        this.enemies = Array(0);
+    }
+    get origin() { return this.positions[0]; }
+    AddEnemy(enemy)
+    {
+        if (this.enemies.find(e => { return e === enemy; }).length > 0)
+            return;
+        enemy.position = this.origin;
+        this.enemies.push(enemy);
+    }
+    OverlapCircle(circle, callback = e => { return true; })
+    {
+        return this.enemies.find(e => { return circle.IsInside(e.position) && callback(e); })
+    }
+    Update()
+    {
+        this.enemies.forEach(e => {
+            let destination = this.GetDestinationByIndex(e.current_index);
+            e.FaceTo(destination, e.turn_speed * Time.deltaTime)
+            e.MoveTo(destination, e.speed * Time.deltaTime);
+            if (Vector2.distance(e.position, destination) <= e.speed * Time.deltaTime)
+            {
+                if (++e.current_index == this.positions.length)
+                    e.OnReachCore(this.core);
+            }
+        });
+        this.enemies.remove_if(e => { return e.current_index == this.positions.length; });
+    }
+    Render()
+    {
+        // RenderLines("#F00", 1, ...this.positions);
+        this.enemies.forEach(e => { e.Render(); })
+    }
+    GetDestinationByIndex(index)
+    {
+        return this.positions[Math.clamp(index, 0, this.positions.length - 1)];
+    }
+    IsInside(position, delta = 50)
+    {
+        for (let i = 0; i < this.positions.length; i++)
+            if (Vector2.distance(this.positions[i], position) < delta)
+                return true;
+        for (let i = 0; i + 1 < this.positions.length; i++)
+        {
+            const v1 = this.positions[i];
+            const v2 = this.positions[i + 1];
+            let d = position.add(v1.sub(v2).perp.normalized);
+            let v = IntersectLines(v1, v2, position, d);
+            if (v.x < 0 || v.x > 1)
+                continue;
+            if (MinDistanceFromPointToLine(v1, v2, position) < delta)
+                return true;
+        }
+        return false;
+    }
+    
 }
 class AnimEnemy extends Enemy
 {
@@ -713,7 +503,7 @@ let animations =
     explosion: new Animation(30, ...sprites.explosion),
     explosion_realistic: new Animation(120, ...sprites.explosion_realistic),
 }
-class Projectile extends Entity
+class Projectile extends Transformable
 {
     constructor(target, speed, position = vec(0, 0), rotation = 0, scale = 1, render_layer = 0)
     {
@@ -917,10 +707,6 @@ class WaveSpawner extends Timer
         this.wave_index = 0;
         this.enemy_index = 0;
     }
-    Render()
-    {
-        this.path.Render();
-    }
     OnTimerTick()
     {
         let wave = this.waves[this.wave_index];
@@ -987,7 +773,7 @@ let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
 
 let paths =
 [
-    new Path(sprites.track, new KillableEntity(1000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450))
+    new Path(new KillableEntity(1000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450))
 ];
 let waves = 
 [
@@ -1023,7 +809,6 @@ function Update()
 function Render()
 {
     sprites.track.Render();
-    current_level.Render();
     if (selected_entity instanceof Turret)
     {
         selected_entity.RenderRange();
