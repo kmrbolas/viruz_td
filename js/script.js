@@ -559,14 +559,14 @@ class Enemy extends KillableEntity
         super(max_life, path == null ? vec(0, 0) : path.origin, 0, 1);
         this.speed = speed;
         this.traveled_distance = 0;
-        this.current_index = 0;
+        this.path_index = 0;
         this.path = path;
         this.org = Math.random() * 30 - 15;
     }
     get turn_speed() { return this.speed / 30; }
     get destination()
     {
-        return this.path == null ? this.position : this.path.GetDestinationByIndex(this.current_index);
+        return this.path == null ? this.position : this.path.GetDestinationByIndex(this.path_index);
     }
     get destination_direction()
     {
@@ -574,7 +574,7 @@ class Enemy extends KillableEntity
     }
     get core_reached()
     {
-        return this.path == null || this.path.positions.length == this.current_index;
+        return this.path == null || this.path.positions.length == this.path_index;
     }
     Update()
     {
@@ -589,7 +589,7 @@ class Enemy extends KillableEntity
         this.FaceTo(dest, this.turn_speed * Time.deltaTime);
         if (Vector2.distance(this.position, dest) <= 15 + delta)
         {
-            this.current_index++;
+            this.path_index++;
             this.org = -this.org;
         }
 
@@ -613,7 +613,7 @@ class Enemy extends KillableEntity
         to_spawn.forEach(e => {
             e.traveled_distance = this.traveled_distance;
             e.rotation = this.rotation;
-            e.current_index = this.current_index;
+            e.path_index = this.path_index;
             let delta = Math.random() * 10 + 15;
             delta *= s;
             s *= -1;
@@ -907,7 +907,7 @@ class RocketLauncher extends Turret
         this.sprite.Render(this.position, this.rotation, this.scale);
     }
 }
-class WaveSpawner extends Timer
+class WavePath extends Timer
 {
     constructor(path, waves)
     {
@@ -935,6 +935,11 @@ class WaveSpawner extends Timer
         this.manager.AddEntity(wave.create_enemy(this.path));
         this.enemy_index++;
     }
+    Reset()
+    {
+        this.wave_index = 0;
+        this.enemy_index = 0;
+    }
 }
 class EnemyFactory
 {
@@ -945,11 +950,9 @@ class EnemyFactory
         this.base_speed = base_speed;
         this.base_life = base_life;
         this.type = type;
-        this.Create = [ this.CreateByRank.bind(this, 0),
-                        this.CreateByRank.bind(this, 1),
-                        this.CreateByRank.bind(this, 2),
-                        this.CreateByRank.bind(this, 3),
-                        this.CreateByRank.bind(this, 4)];
+        this.Create = new Array(0);
+        for (let i = 0; i < this.anims.length; i++)
+            this.Create.push(this.CreateByRank.bind(this, i));
     }
     CreateByRank(rank, path = null)
     {
@@ -979,6 +982,36 @@ class TurretFactory
         this.enabled_sprite = enabled_sprite;
         this.disabled_sprite = disabled_sprite;
     }
+}
+class GameManager extends EntityManager
+{
+    constructor(background, wave_paths)
+    {
+        super(...wave_paths);
+        this.background = background;
+        this.wave_paths = wave_paths;
+        this.selected_entity = null;
+    }
+    Render()
+    {
+        super.Render();
+    }
+    Update()
+    {
+        super.Update();
+        if (Input.mouseClick)
+        {
+            let entities = this.OverlapCircle(new Circle2D(Input.mousePos, 20));
+            entities = entities.sort((a, b) => {
+                return Vector2.distance(Input.mousePos, b.position) - Vector2.distance(Input.mousePos, a.position);
+            });
+            selected_entity = entities.length == 0 ? null : entities[0];
+        }
+    }
+    Reset()
+    {
+        wave_paths.forEach(wp => { wp.Reset(); });
+    }
 
 }
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
@@ -991,15 +1024,31 @@ let paths =
 ];
 let waves = 
 [
-    [wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[2], 3)]
+    [
+        wave(3),
+        wave(.5,
+        spider_factory.Create[0], 10),
+        wave(3),
+        wave(.5, spider_factory.Create[1], 3),
+        wave(3),
+        wave(.5,
+        spider_factory.Create[0], 10),
+        wave(3),
+        wave(.5, spider_factory.Create[1], 3),
+        wave(3),
+        wave(.5,
+        spider_factory.Create[0], 10),
+        wave(3),
+        wave(.5, spider_factory.Create[1], 3),
+    ]
 ];
 let wave_paths =
 [
-    new WaveSpawner(paths[0], waves[0])
+    [new WavePath(paths[0], waves[0])]
 ];
 let levels = 
 [
-    new EntityManager(wave_paths[0])
+    new GameManager(wave_paths[0])
 ];
 
 let current_level = levels[0];
