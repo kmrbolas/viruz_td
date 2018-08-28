@@ -406,7 +406,7 @@ class Path
     get origin() { return this.positions[0]; }
     AddEnemy(enemy)
     {
-        if (this.enemies.find(e => { return e === enemy; }) != undefined)
+        if (!(enemy instanceof Enemy) || this.enemies.find(e => { return e === enemy; }) != undefined)
             return;
         enemy.position = this.origin;
         enemy.current_path = this;
