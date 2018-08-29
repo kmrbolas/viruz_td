@@ -16,10 +16,7 @@ Array.prototype.find_last_of = function(callback)
 };
 Math.clamp = (value, min, max) => { return Math.max(min, Math.min(value, max)); }
 Math.lerp = (v1, v2, t) => { return v1 + (v2 - v1) * Math.clamp(t, 0, 1); };
-function wave(delay, create_enemy = null, count = 1)
-{
-    return { delay: delay, create_enemy: create_enemy, count: count };
-}
+function wave(delay, create_enemy = null, count = 1) { return { delay: delay, create_enemy: create_enemy, count: count }; }
 class Vector2
 {
 	constructor(x, y)
@@ -103,16 +100,41 @@ function IntersectLines(a, b, c, d)
     const s = Vector2.sub(d, c);
     return vec(Vector2.cross(Vector2.sub(c, a), s) / Vector2.cross(r, s), Vector2.cross(Vector2.sub(a, c), r) / Vector2.cross(s, r));
 }
+function RenderRectangleFilled(style, pos, size)
+{
+    context.fillStyle = style;
+    context.fillRect(pos.x, pos.y, size.x, size.y);
+}
+function RenderRectangleStroked(style, lineWidth, pos, size)
+{
+    context.strokeStyle = style;
+    context.lineWidth = lineWidth;
+    context.strokeRect(pos.x, pos.y, size.x, size.y);
+}
+function RenderRectangle(fillStyle, strokeStyle, lineWidth, pos, size)
+{
+    RenderRectangleFilled(fillStyle, pos, size);
+    RenderRectangleStroked(strokeStyle, lineWidth, pos, size);
+}
+function RenderLifeBar(life, max_life, pos, size)
+{
+    RenderRectangleStroked("#999", 1, pos, size);
+    let p = life / max_life;
+    size.x *= p;
+    let color = p >= .8 ? "#0F0" : p >= .6 ? "#DF0" : p >= .4 ? "#FF0" : p >= .2 ? "#F90" : "#F00";
+    RenderRectangle(color, "#000", 1, pos, size);
+}
 let Time =
 {
     deltaTime: 0,
     unscaledDeltaTime: 0,
     timeScale: 1,
 }
-const Input =
+let Input =
 {
     mouseClick: false,
     mousePos: vec(0, 0),
+    log(s) { console.log(s); },
 }
 class Rectangle2D
 {
@@ -195,22 +217,9 @@ class Circle2D
     }
 
 }
-class GUI
-{
-    static Button(position, size, text)
-    {
-        let rect = new Rectangle2D(position, size);
-        rect.Render("#999", "#000", 1);
-        context.fillStyle="#000";
-        context.font='10px sans-serif';
-        context.textAlign='center';
-        context.fillText(text, rect.center.x, rect.center.y);
-        return Input.mouseClick && rect.IsInside(Input.mousePos);
-    }
-}
 function vec(x, y) { return new Vector2(x, y); }
 function rectangle(pos, size) { return new Rectangle2D(pos, size); }
-class Transformable
+class Transform
 {
     constructor(position = vec(0, 0), rotation = 0, scale = 1)
     {
@@ -218,16 +227,7 @@ class Transformable
         this.rotation = rotation;
         this.scale = scale;
     }
-    get transform()
-    {
-        return { position: this.position, rotation: this.rotation, scale: this.scale };
-    }
-    set transform(value)
-    {
-        this.position = value.position;
-        this.rotation = value.rotation;
-        this.scale = value.scale;
-    }
+    get copy() { return new Transform(this.position, this.rotation, this.scale); }
     FaceTo(position, t = 1)
     {
         let dir = Vector2.sub(position, this.position).normalized;
@@ -238,7 +238,17 @@ class Transformable
         let direction = Vector2.sub(position, this.position).normalized;
         this.position = Vector2.add(this.position, direction.mult(amount));
     }
-
+}
+function trans(pos, rot, sca) { return new Transform(pos, rot, sca); }
+class Transformable
+{
+    constructor(transform)
+    {
+        this._transform = new Transform();
+        this.transform = transform;
+    }
+    get transform() { return this._transform; }
+    set transform(value) { this._transform = value.copy; }
 }
 class Timer
 {
@@ -268,21 +278,23 @@ class Timer
 }
 class Sprite extends Transformable
 {
-    constructor(src, position = vec(0, 0), rotation = 0, scale = 1)
+    constructor(src, transform = new Transform())
     {
-        super(position, rotation, scale);
+        super(transform);
         this.img = new Image();
         this.img.src = src;
     }
-    get center() { return this.position.add(this.size.div(2)); }
-    set center(value) { this.position = value.sub(this.size.div(2)); }
-    get size() { return vec(this.img.width * this.scale, this.img.height * this.scale); }
+    get unscaled_size() { return vec(this.img.width, this.img.height); }
+    get size() { return this.unscaled_size.mult(this.transform.scale); }
+    get top_position() { return this.transform.position.sub(this.size.div(2)); }
+    set top_position(value) { this.transform.position = value.add(this.size.div(2)); }
     Render()
     {
         context.save();
-        context.translate(this.center.x, this.center.y);
-        context.rotate(this.rotation);
-        context.drawImage(this.img, -this.size.x / 2, -this.size.y / 2, this.size.x, this.size.y);
+        context.translate(this.transform.position.x, this.transform.position.y);
+        context.rotate(this.transform.rotation);
+        context.scale(this.transform.scale, this.transform.scale);
+        context.drawImage(this.img, -this.img.width / 2, -this.img.height / 2, this.img.width, this.img.height);
         context.restore();
     }
     static CreateArray(...srcs)
@@ -291,153 +303,139 @@ class Sprite extends Transformable
         srcs.forEach(src => { arr.push(new Sprite(src)); });
         return arr;
     }
+    static CreateSheet(path, n, fmt)
+    {
+        let arr = new Array(0);
+        for (let i = 0; i < n; i++)
+            arr.push(path + i + fmt);
+        return Sprite.CreateArray(...arr);
+    }
+}
+let sprites =
+{
+    spider:
+    [
+        Sprite.CreateSheet("images/enemies/spider_d_", 4, ".png"),
+        Sprite.CreateSheet("images/enemies/spider_c_", 4, ".png"),
+        Sprite.CreateSheet("images/enemies/spider_b_", 4, ".png"),
+        Sprite.CreateSheet("images/enemies/spider_a_", 4, ".png"),
+        Sprite.CreateArray("images/enemies/spider_d_0.png", "images/enemies/spider_c_1.png", "images/enemies/spider_b_0.png", "images/enemies/spider_a_1.png")
+    ],
+
+    beetle:
+    [
+        Sprite.CreateSheet("images/enemies/beetle_d_", 2, ".png"),
+        Sprite.CreateSheet("images/enemies/beetle_c_", 2, ".png"),
+        Sprite.CreateSheet("images/enemies/beetle_b_", 2, ".png"),
+        Sprite.CreateSheet("images/enemies/beetle_a_", 2, ".png"),
+        Sprite.CreateArray("images/enemies/beetle_d_0.png", "images/enemies/beetle_c_1.png", "images/enemies/beetle_b_0.png", "images/enemies/beetle_a_1.png")
+    ],
+
+    wasp:
+    [
+        Sprite.CreateSheet("images/enemies/wasp_d_", 5, ".png"),
+        Sprite.CreateSheet("images/enemies/wasp_c_", 5, ".png"),
+        Sprite.CreateSheet("images/enemies/wasp_b_", 5, ".png"),
+        Sprite.CreateSheet("images/enemies/wasp_a_", 5, ".png"),
+        Sprite.CreateArray("images/enemies/wasp_d_0.png", "images/enemies/wasp_c_1.png", "images/enemies/wasp_b_2.png", "images/enemies/wasp_a_3.png", "images/enemies/wasp_a_4.png")
+    ],
+
+    machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
+    anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
+    rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
+    rocket: new Sprite("images/projectiles/rocket/0.png"),
+    bullet: new Sprite("images/projectiles/bullet/0.png"),
+    explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
+    explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
+    track: new Sprite("images/background/Track01.png"),
+    grass: new Sprite("images/background/grass.jpg"),
 }
 class Animation extends Transformable
 {
-    constructor(frame_rate, sprites, position = vec(0, 0), rotation = 0, scale = 1, align_to_center = true)
+    constructor(frame_rate, sprites, transform = new Transform())
     {
-        super(position, rotation, scale);
+        super(transform);
         this.sprites = sprites;
         this.sprite_index = 0;
         this.times_played = 0;
-        this.align_to_center = align_to_center;
         this.timer = new Timer(1 / frame_rate, () => { 
             this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
             if (this.sprite_index == 0)
                 this.times_played++;
         });
     }
-    get copy() { return new Animation(this.frame_rate, this.sprites, this.position, this.rotation, this.scale); }
+    get copy() { return new Animation(this.frame_rate, this.sprites, this.transform); }
     get frame_rate() { return this.timer.frequency; }
     set frame_rate(value) { this.timer.frequency = value; }
     get current_sprite() { return this.sprites[this.sprite_index]; }
     Render()
     {
         this.current_sprite.transform = this.transform;
-        if (this.align_to_center) this.current_sprite.center = this.position;
         this.current_sprite.Render();
     }
     Update()
     {
         this.timer.Update();
     }
+    static CreateArray(frame_rate, sprites_arr)
+    {
+        let arr = new Array(0);
+        sprites_arr.forEach(sprites => { arr.push(new Animation(frame_rate, sprites)); });
+        return arr;
+    }
+}
+let animations =
+{
+    spider: Animation.CreateArray(12, sprites.spider),
+    beetle: Animation.CreateArray(12, sprites.beetle),
+    machine_gun: new Animation(12, sprites.machine_gun),
+    anti_air: new Animation(12, sprites.anti_air),
+    explosion: new Animation(30, sprites.explosion),
+    explosion_realistic: new Animation(120, sprites.explosion_realistic),
 }
 class KillableEntity extends Transformable
 {
-    constructor(max_life, position = vec(0, 0), rotation = 0, scale = 1)
+    constructor(max_life, transform = new Transform())
     {
-        super(position, rotation, scale);
+        super(transform);
         this.max_life = max_life;
         this._life = max_life;
     }
-    get life() { return this._life; }
-    set life(value)
-    {
-        value = Math.clamp(value, 0, this.max_life);
-        if (this._life === value)
-            return;
-        this.OnLifeChanged(value);
-        this._life = value;
-        if (this._life === 0)
-            this.OnDeath();
-    }
     get is_alive() { return this.life > 0; }
     get is_dead() { return !this.is_alive; }
-    OnLifeChanged(value) {  }
-    OnDeath() {  }
+    get life() { return this._life; }
+    set life(value) { this._life = Math.clamp(value, 0, this.max_life); }
     Render()
     {
         this.RenderLifeBar();
     }
-    RenderLifeBar(offset = 30, r = rectangle(vec(0, 0), vec(25, 5)), text = false)
+    RenderLifeBar(offset = 30, text = false)
     {
-        r.center = this.position;
-        r.center = Vector2.sub(r.center, vec(0, offset));
-        r.RenderLifeBar(this.life, this.max_life);
+        let pos = Vector2.sub(this.transform.position, vec(12, offset));
+        RenderLifeBar(this.life, this.max_life, pos, vec(25, 5));
         if (!text)
             return;
         context.font= '10px sans-serif';
         context.fillStyle = "#000";
-        context.fillText(this.life.toFixed(0), r.position.x, r.position.y + r.size.y - 2);
+        context.fillText(this.life.toFixed(0), pos.x, pos.y + 10);
     }
 
-}
-class Enemy extends KillableEntity
-{
-    constructor(speed, max_life, position = vec(0, 0), rotation = 0, scale = 1)
-    {
-        super(max_life, position, rotation, scale);
-        this.speed = speed;
-        this.traveled_distance = 0;
-        this.path_index = 0;
-        this.org = Math.random() * 30 - 15;
-        this.current_path = null;
-        this.destination = position;
-        this.direction = vec(0, 0);
-    }
-    get turn_speed() { return this.speed / 30; }
-    OnReachCore(core)
-    {
-        core.life -= this.life;
-        this.life = 0;
-    }
-    Render()
-    {
-        let r = rectangle(vec(0, 0), vec(25, 25));
-        r.center = this.position;
-        r.Render("#F00");
-        this.RenderLifeBar();
-    }
-
-    SpawnAdjacent(...to_spawn)
-    {
-
-    }
 }
 class Path
 {
-    constructor(core, ...positions)
+    constructor(sprite, core, ...positions)
     {
+        this.sprite = sprite;
         this.core = core;
         this.positions = positions;
-        this.positions.push(core.position);
-        this.enemies = Array(0);
+        this.positions.push(core.transform.position);
     }
     get origin() { return this.positions[0]; }
-    AddEnemy(enemy)
-    {
-        if (!(enemy instanceof Enemy) || this.enemies.find(e => { return e === enemy; }) != undefined)
-            return;
-        enemy.position = this.origin;
-        enemy.current_path = this;
-        enemy.path_index = 0;
-        this.enemies.push(enemy);
-    }
-    OverlapCircle(circle, callback = e => { return true; })
-    {
-        return this.enemies.find(e => { return circle.IsInside(e.position) && callback(e); })
-    }
-    Update()
-    {
-        this.enemies.forEach(e => {
-            let dest = this.GetDestinationByIndex(e.path_index);
-            let perp = this.GetDirectionByIndex(e.path_index).perp;
-            dest = dest.add(perp.mult(e.org));
-            e.MoveTo(dest, e.speed * Time.deltaTime);
-            e.FaceTo(dest, e.turn_speed * Time.deltaTime);
-            if (Vector2.distance(e.position, dest) <= 5 * e.speed * Time.deltaTime)
-            {
-                e.org = -e.org;
-                if (++e.path_index == this.positions.length)
-                    e.OnReachCore(this.core);
-            }
-        });
-        this.enemies.remove_if(e => { return e.current_index == this.positions.length || e.is_dead; });
-    }
     Render()
     {
         // RenderLines("#F00", 1, ...this.positions);
-        this.enemies.forEach(e => { e.Render(); })
+        this.sprite.Render();
+        this.core.Render();
     }
     GetDestinationByIndex(index)
     {
@@ -467,312 +465,81 @@ class Path
     }
     
 }
+class Enemy extends KillableEntity
+{
+    constructor(speed, max_life, transform = new Transform())
+    {
+        super(max_life, transform);
+        this.speed = speed;
+        this.traveled_distance = 0;
+        this.path_index = 0;
+        this.org = Math.random() * 30 - 15;
+    }
+    get turn_speed() { return this.speed / 10; }
+    Update(game_manager)
+    {
+        let path = game_manager.path;
+        if (this.path_index == 0)
+        {
+            this.transform.position = path.origin;
+            this.transform.FaceTo(path.GetDestinationByIndex(++this.path_index));
+            return;
+        }
+        let dest = path.GetDestinationByIndex(this.path_index);
+        let perp = path.GetDirectionByIndex(this.path_index).perp;
+        dest = dest.add(perp.mult(this.org));
+        this.transform.MoveTo(dest, this.speed * Time.deltaTime);
+        this.transform.FaceTo(dest, this.turn_speed * Time.deltaTime);
+        if (Vector2.distance(this.transform.position, dest) <= 5 * this.speed * Time.deltaTime)
+        {
+            this.org = -this.org;
+            if (this.path_index++ >= path.positions.length)
+            {
+                path.core.life -= this.life;
+                this.life = 0;
+            }
+        }
+        if (this.is_dead)
+        {
+            let ex = animations.explosion.copy;
+            ex.transform = this.transform;
+            ex.transform.scale *= 1.5;
+            game_manager.PlayAnimation(ex);
+            if (this.rank < 1) return;
+            this.SpawnAdjacent(game_manager, this.factory.CreateByRank(this.rank - 1));
+            if (this.rank < 3) return;
+            this.SpawnAdjacent(game_manager, this.factory.CreateByRank(this.rank - 1));
+            return;
+        }
+    }
+    SpawnAdjacent(game_manager, to_spawn, d = Math.random() * 20 - 10)
+    {
+        to_spawn.transform.position = Vector2.angleVector(this.transform.rotation).perp.mult(d).add(this.transform.position);
+        to_spawn.transform.rotation = this.transform.rotation;
+        to_spawn.traveled_distance = this.traveled_distance;
+        to_spawn.path_index = this.path_index;
+        game_manager.waveSpawner.enemies.push(to_spawn);
+    }
+}
 class AnimEnemy extends Enemy
 {
-    constructor(anim, speed, max_life, position = vec(0, 0), rotation = 0, scale = 1)
+    constructor(anim, speed, max_life, transform = new Transform())
     {
-        super(speed, max_life, position, rotation, scale);
+        super(speed, max_life, transform);
         this.anim = anim.copy;
-        this.scale = scale;
+    }
+    Update(path)
+    {
+        super.Update(path);
+        this.anim.Update();
     }
     Render()
     {
         this.anim.transform = this.transform;
-        this.anim.center = this.position;
-        this.anim.Update();
         this.anim.Render();
         this.RenderLifeBar();
     }
-    OnDeath()
-    {
-        let ex = animations.explosion.copy;
-        ex.position = this.position;
-        // this.manager.AddEntity(ex);
-        super.OnDeath();
-    }
 
-}
-let sprites =
-{
-    spider:[Sprite.CreateArray("images/enemies/Spider/spider_d_0.png", "images/enemies/Spider/spider_d_1.png", "images/enemies/Spider/spider_d_2.png", "images/enemies/Spider/spider_d_3.png"),
-            Sprite.CreateArray("images/enemies/Spider/spider_c_0.png", "images/enemies/Spider/spider_c_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_c_3.png"),
-            Sprite.CreateArray("images/enemies/Spider/spider_b_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_b_2.png", "images/enemies/Spider/spider_b_3.png"),
-            Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_a_1.png", "images/enemies/Spider/spider_a_2.png", "images/enemies/Spider/spider_a_3.png"),
-            Sprite.CreateArray("images/enemies/Spider/spider_a_0.png", "images/enemies/Spider/spider_b_1.png", "images/enemies/Spider/spider_c_2.png", "images/enemies/Spider/spider_d_3.png")],
-    beetle:[Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_d_1.png"),
-            Sprite.CreateArray("images/enemies/Bettle/beetle_c_0.png", "images/enemies/Bettle/beetle_c_1.png"),
-            Sprite.CreateArray("images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_b_1.png"),
-            Sprite.CreateArray("images/enemies/Bettle/beetle_a_0.png", "images/enemies/Bettle/beetle_a_1.png"),
-            Sprite.CreateArray("images/enemies/Bettle/beetle_d_0.png", "images/enemies/Bettle/beetle_c_1.png", "images/enemies/Bettle/beetle_b_0.png", "images/enemies/Bettle/beetle_a_1.png")],
-    machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
-    anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
-    rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
-    rocket: new Sprite("images/projectiles/rocket/0.png"),
-    bullet: new Sprite("images/projectiles/bullet/0.png"),
-    explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
-    explosion_realistic: Sprite.CreateArray("images/effects/realexplosion/1.png",
-                                            "images/effects/realexplosion/2.png",
-                                            "images/effects/realexplosion/3.png",
-                                            "images/effects/realexplosion/4.png",
-                                            "images/effects/realexplosion/5.png",
-                                            "images/effects/realexplosion/6.png",
-                                            "images/effects/realexplosion/7.png",
-                                            "images/effects/realexplosion/8.png",
-                                            "images/effects/realexplosion/9.png",
-                                            "images/effects/realexplosion/10.png",
-                                            "images/effects/realexplosion/11.png",
-                                            "images/effects/realexplosion/12.png",
-                                            "images/effects/realexplosion/13.png",
-                                            "images/effects/realexplosion/14.png",
-                                            "images/effects/realexplosion/15.png",
-                                            "images/effects/realexplosion/16.png",
-                                            "images/effects/realexplosion/17.png",
-                                            "images/effects/realexplosion/18.png",
-                                            "images/effects/realexplosion/19.png",
-                                            "images/effects/realexplosion/20.png",
-                                            "images/effects/realexplosion/21.png",
-                                            "images/effects/realexplosion/22.png",
-                                            "images/effects/realexplosion/23.png",
-                                            "images/effects/realexplosion/24.png",
-                                            "images/effects/realexplosion/25.png",
-                                            "images/effects/realexplosion/26.png"),
-    track: new Sprite("images/background/Track01.png"),
-}
-let animations =
-{
-    spider:[new Animation(12, sprites.spider[0]),
-            new Animation(12, sprites.spider[1]),
-            new Animation(12, sprites.spider[2]),
-            new Animation(12, sprites.spider[3]),
-            new Animation(12, sprites.spider[4])],
-    beetle:[new Animation(12, sprites.beetle[0]),
-            new Animation(12, sprites.beetle[1]),
-            new Animation(12, sprites.beetle[2]),
-            new Animation(12, sprites.beetle[3]),
-            new Animation(12, sprites.beetle[4])],
-    machine_gun: new Animation(12, sprites.machine_gun),
-    anti_air: new Animation(12, sprites.anti_air),
-    explosion: new Animation(30, sprites.explosion),
-    explosion_realistic: new Animation(120, sprites.explosion_realistic),
-}
-class Projectile extends Transformable
-{
-    constructor(target, speed, position = vec(0, 0), rotation = 0, scale = 1, render_layer = 0)
-    {
-        super(position, rotation, scale, render_layer);
-        this.target = target;
-        this.speed = speed;
-    }
-    Update()
-    {
-        this.FaceTo(this.target.position);
-        this.MoveTo(this.target.position, this.speed * Time.deltaTime);
-        if (Vector2.distance(this.position, this.target.position) <= this.speed * Time.deltaTime)
-            this.OnHit();
-    }
-    Render()
-    {
-        new Circle2D(this.position, 5).Render("#FF0");
-    }
-    OnHit() { this.Release(); }
-
-}
-class Bullet extends Projectile
-{
-    constructor(target, damage, speed, position = vec(0, 0), rotation = 0, scale = 1)
-    {
-        super(target, speed, position, rotation, scale, 6);
-        this.damage = damage;
-    }
-    OnHit()
-    {
-        this.target.life -= this.damage;
-        super.OnHit();
-    }
-    Render()
-    {
-        sprites.bullet.transform = this.transform;
-        sprites.bullet.Render();
-    }
-}
-class Rocket extends Projectile
-{
-    constructor(target, damage, aoe, speed, position = vec(0, 0), rotation = 0, scale = 1)
-    {
-        super(target, speed, position, rotation, scale);
-        this.damage = damage;
-        this.aoe = aoe;
-    }
-    OnHit()
-    {
-        let enemies = this.manager.OverlapCircle(new Circle2D(this.target.position, this.aoe), e => {
-            return e instanceof Enemy;
-        });
-        enemies.forEach(e => {
-            e.life -= this.damage;
-        });
-        let ex = animations.explosion_realistic.copy;
-        ex.position = this.target.position;
-        ex.scale = this.aoe / 50;
-        this.manager.AddEntity(ex);
-        this.Release();
-    }
-    Render()
-    {
-        sprites.rocket.transform = this.transform;
-        sprites.rocket.Render();
-        // new Circle2D(this.position, this.aoe).RenderBorder("#F00", 2);
-    }
-}
-class Turret extends Timer
-{
-    constructor(rate, range, fov, position)
-    {
-        super(1 / rate);
-        this.render_layer = 5;
-        this.position = position;
-        this.range = range;
-        this.fov = fov;
-        this.targets = Array(0);
-    }
-    get bullet_speed() { return this.rate * 50; }
-    get bullet_position() { return this.position; }
-    get target() { return this.targets[0]; }
-    Shoot()
-    {
-        this.manager.AddEntity(new Projectile(this.target, this.bullet_speed, this.bullet_position, this.rotation));
-    }
-    UpdateRotation()
-    {
-        this.FaceTo(this.targets[0].position, 10 * Time.deltaTime);
-    }
-    UpdateTargets()
-    {
-        this.targets = this.manager.OverlapCircle(new Circle2D(this.position, this.range), e => { return e instanceof Enemy; });
-        this.targets = this.targets.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
-    }
-    ValidateTargets()
-    {
-        this.targets.remove_if(e => { return Vector2.sub(e.position, this.position).normalized.distance(Vector2.angleVector(this.rotation)) > this.fov / 2; });
-    }
-    Update()
-    {
-        super.Update();
-        this.UpdateTargets();
-        if (this.targets.length == 0)
-            return;
-        this.UpdateRotation();
-        this.ValidateTargets();
-    }
-    OnTimerTick()
-    {
-        if (this.targets.length > 0)
-            this.Shoot();
-    }
-    RenderRange(color = "#000")
-    {
-        let d = this.fov / 2;
-        let a1 = this.rotation - d;
-        let a2 = this.rotation + d;
-        let dir1 = Vector2.angleVector(a1).mult(this.range).add(this.position);
-        let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.position);
-        RenderLines(color, 1, dir1, this.position, dir2);
-        let c = new Circle2D(this.position, this.range);
-        context.save();
-        context.globalAlpha = .5;
-        c.Render("#FFF", color);
-        context.restore();
-    }
-}
-class MachineGun extends Turret
-{
-    static get enabled_sprite() { return sprites.machine_gun[3]; }
-    static get disabled_sprite() { return sprites.machine_gun[4]; }
-    constructor(damage, speed, range, fov, position)
-    {
-        super(speed, range, fov, position)
-        this.damage = damage;
-        this.left = false;
-        this.sprite = sprites.machine_gun[0];
-        this.scale = .5;
-    }
-    get bullet_position()
-    {
-        return Vector2.add(this.position, Vector2.angleVector(this.rotation + (this.left ? -.5 : .5)).mult(30 * this.scale));
-    }
-    Shoot()
-    {
-        this.left = !this.left;
-        this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
-        this.manager.AddEntity(new Bullet(this.target, this.damage, this.bullet_speed, this.bullet_position));
-        super.Shoot();
-    }
-    Render()
-    {
-        if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
-        this.sprite.transform = this.transform;
-        this.sprite.Render(this.position, this.rotation, this.scale);
-    }
-
-}
-class RocketLauncher extends Turret
-{
-    constructor(damage, aoe, rate, range, fov, position)
-    {
-        super(rate, range, fov, position)
-        this.damage = damage;
-        this.aoe = aoe;
-        this.sprite = sprites.rocket_launcher[0];
-        this.left = false;
-        this.scale = .5;
-    }
-    get bullet_speed() { return this.rate * 400; }
-    get bullet_position() { return this.position.add(Vector2.angleVector(this.rotation).mult(this.scale * 50)); }
-    Shoot()
-    {
-        this.manager.AddEntity(new Rocket(this.target, this.damage, this.aoe, this.bullet_speed, this.bullet_position));
-    }
-    UpdateTargets()
-    {
-        super.UpdateTargets();
-        this.targets = this.targets.sort((a, b) => {
-            let a1 = this.manager.OverlapCircle(new Circle2D(a.position, this.aoe), e => { return e instanceof Enemy; });
-            let b1 = this.manager.OverlapCircle(new Circle2D(b.position, this.aoe), e => { return e instanceof Enemy; });
-            return b1.length - a1.length;
-        });
-    }
-    Render()
-    {
-        this.sprite.transform = this.transform;
-        if (this.targets.length > 0)
-            this.sprite.position = this.position.add(Vector2.angleVector(this.rotation).mult(((this.delay - this.to_tick) / this.delay) * 10 ));
-        this.sprite.Render(this.position, this.rotation, this.scale);
-    }
-}
-class WaveSpawner extends Timer
-{
-    constructor(path, waves)
-    {
-        super(waves[0].delay);
-        this.path = path;
-        this.waves = waves;
-        this.wave_index = 0;
-        this.enemy_index = 0;
-    }
-    OnTimerTick()
-    {
-        let wave = this.waves[this.wave_index];
-        if (wave.create_enemy == null || wave.count == this.enemy_index)
-        {
-            if (++this.wave_index == this.waves.length)
-                return this.Release();
-            this.enemy_index = 0;
-            this.delay = this.waves[this.wave_index].delay;
-            return;
-        }
-        this.manager.AddEntity(wave.create_enemy(this.path));
-        this.enemy_index++;
-    }
 }
 class EnemyFactory
 {
@@ -790,22 +557,27 @@ class EnemyFactory
     CreateByRank(rank)
     {
         let e = new AnimEnemy(this.anims[rank], this.base_speed, this.base_life * Math.pow(2, rank));
-        e.scale = this.base_scale + .1 * rank;
+        e.transform.scale = this.base_scale + .05 * rank;
         e.factory = this;
         e.type = this.type;
         e.rank = rank;
-        if (rank >= 2)
-        {
-            e.OnDeath = function()
-            {
-                this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1, this.path), this.factory.CreateByRank(this.rank - 1, this.path));
-                let ex = animations.explosion.copy;
-                ex.position = this.position;
-                this.manager.AddEntity(ex);
-                this.Release();
-            }
-        }
         return e;
+    }
+}
+let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
+let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
+let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
+class Turret extends Transformable
+{
+    constructor(fire_rate, range, transform = new Transform())
+    {
+        super(transform);
+        this.timer = new Timer(1 / fire_rate);
+        this.range = range;
+    }
+    Update(game_manager)
+    {
+
     }
 }
 class TurretFactory
@@ -818,36 +590,99 @@ class TurretFactory
     }
 
 }
-let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
-let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
+class WaveSpawner extends Timer
+{
+    constructor(waves)
+    {
+        super(waves[0].delay);
+        this.enemies = new Array(0);
+        this.waves = waves;
+        this.wave_index = 0;
+        this.enemy_index = 0;
+    }
+    OnTimerTick()
+    {
+        if (this.wave_index == this.waves.length)
+            return;
+        let wave = this.waves[this.wave_index];
+        if (wave.create_enemy == null || wave.count == this.enemy_index)
+        {
+            if (++this.wave_index == this.waves.length)
+                return;
+            this.enemy_index = 0;
+            this.delay = this.waves[this.wave_index].delay;
+            return;
+        }
+        this.enemies.push(wave.create_enemy(this.path));
+        this.enemy_index++;
+    }
+    Reset()
+    {
+        this.wave_index = 0;
+        this.enemy_index = 0;
+        this.enemies = new Array(0);
+    }
+}
+class GameManager
+{
+    constructor(background_sprite, path, waves)
+    {
+        this.background_sprite = background_sprite;        
+        this.path = path;
+        this.waves = waves;
+        this.waveSpawner = new WaveSpawner(this.waves);
+        this.animations = new Array(0);
+    }
+    PlayAnimation(anim, times_to_play = 1)
+    {
+        let a = anim.copy;
+        a.times_to_play = times_to_play;
+        this.animations.push(a);
+    }
+    Update()
+    {
+        this.waveSpawner.Update();
+        this.waveSpawner.enemies.remove_if(e => {
+            e.Update(this);
+            return e.is_dead;
+        });
+        this.animations.remove_if(a => {
+            a.Update();
+            return a.times_played >= a.times_to_play;
+        });
+    }
+    Render()
+    {
+        this.background_sprite.Render();
+        this.path.Render();
+        this.waveSpawner.enemies.forEach(e => { e.Render(); })
+        this.animations.forEach(a => { a.Render(); })
+    }
+    Reset()
+    {
+        this.waveSpawner.Reset();
+    }
+}
 
-let paths =
-[
-    new Path(new KillableEntity(1000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450))
-];
-let waves = 
-[
-    [wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[2], 3)]
-];
-let wave_paths =
-[
-    new WaveSpawner(paths[0], waves[0])
-];
+let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
+// [wave(.5, spider_factory.Create[0], 1)]);
+[wave(3), wave(.5, spider_factory.Create[4], 10), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
 
-let selected_entity = null;
-
-paths[0].AddEnemy(spider_factory.Create[0]());
+function Start()
+{
+    sprites.grass.transform.scale = 1.2;
+    sprites.grass.top_position = vec(0, 0);
+    sprites.track.top_position = vec(0, 0);
+}
 
 function Update()
 {
-    paths[0].Update();
+    current_level.Update();
 }
 
 function Render()
 {
-    sprites.track.Render();
-    paths[0].Render();
+    current_level.Render();
 }
 
 let lastRender = 0;
@@ -870,4 +705,8 @@ canvas.addEventListener("mousemove", e =>
     Input.mousePos = vec(e.clientX - rect.left, e.clientY - rect.top);
 });
 
-window.requestAnimationFrame(loop);
+window.onload = function()
+{
+    Start();
+    window.requestAnimationFrame(loop);
+}
