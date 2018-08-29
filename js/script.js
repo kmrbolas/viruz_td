@@ -567,6 +567,85 @@ class EnemyFactory
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
 let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
+class Projectile extends Transformable
+{
+    constructor(aoe, speed, target, transform = new Transform())
+    {
+        super(transform);
+        this.aoe = aoe;
+        this.speed = speed;
+        this.target = target;
+        this.target_reached = false;
+    }
+    Update(game_manager)
+    {
+        this.transform.FaceTo(this.target.transform.position);
+        this.transform.MoveTo(this.target.transform.position, this.speed * Time.deltaTime);
+        if (Vector2.distance(this.transform.position, this.target.transform.position) <= this.speed * Time.deltaTime)
+        {
+            this.target_reached = true;
+            let targets = [this.target];
+            game_manager.enemies.forEach(e => {
+                if (Vector2.distance(e !== this.target && e.transform.position, this.transform.position) <= this.aoe)
+                    targets.push(e);
+            });
+            this.OnHit(targets);
+        }
+    }
+    Render()
+    {
+        RenderRectangleFilled("#F00", this.transform.position, vec(25, 25));
+    }
+    OnHit(targets)
+    {
+
+    }
+
+}
+function create_bullet(sprite, damage, chains_number, aoe, speed, target, transform)
+{
+    let bullet = new Projectile(aoe, speed, target, transform);
+    bullet.sprite = sprite;
+    bullet.Render = function()
+    {
+        this.sprite.transform = this.transform;
+        this.sprite.Render();
+    }
+    bullet.damage = damage;
+    bullet.chains_number = chains_number;
+    bullet.OnHit = function(targets)
+    {
+        targets[0].life -= this.damage;
+        if (targets.length == 1 || this.chains_number == 0)
+            return;
+        this.target = targets[1];
+        this.chains_number--;
+        this.target_reached = false;
+    }
+    return bullet;
+}
+function create_rocket(sprite, damage, chains_number, aoe, speed, target, transform)
+{
+    let bullet = new Projectile(aoe, speed, target, transform);
+    bullet.sprite = sprite;
+    bullet.Render = function()
+    {
+        this.sprite.transform = this.transform;
+        this.sprite.Render();
+    }
+    bullet.damage = damage;
+    bullet.chains_number = chains_number;
+    bullet.OnHit = function(targets)
+    {
+        targets[0].life -= this.damage;
+        if (targets.length == 1 || this.chains_number == 0)
+            return;
+        this.target = targets[1];
+        this.chains_number--;
+        this.target_reached = false;
+    }
+    return bullet;
+}
 class Turret extends Transformable
 {
     constructor(fire_rate, range, transform = new Transform())
@@ -582,8 +661,9 @@ class Turret extends Transformable
 }
 class TurretFactory
 {
-    constructor(create_fn, enabled_sprite, disabled_sprite)
+    constructor(cost, create_fn, enabled_sprite, disabled_sprite)
     {
+        this.cost = cost;
         this.create_fn = create_fn;
         this.enabled_sprite = enabled_sprite;
         this.disabled_sprite = disabled_sprite;
@@ -632,7 +712,10 @@ class GameManager
         this.waves = waves;
         this.waveSpawner = new WaveSpawner(this.waves);
         this.animations = new Array(0);
+        this.projectiles = new Array(0);
+        this.turrets = new Array(0);
     }
+    get enemies() { return this.waveSpawner.enemies; }
     PlayAnimation(anim, times_to_play = 1)
     {
         let a = anim.copy;
@@ -641,14 +724,26 @@ class GameManager
     }
     Update()
     {
+        if (this.enemies.length > 0)
+        {
+            this.projectiles.push(create_bullet(sprites.bullet, 20, 2, 100, 600, this.enemies[0], trans(Input.mousePos)));
+        }
         this.waveSpawner.Update();
         this.waveSpawner.enemies.remove_if(e => {
             e.Update(this);
             return e.is_dead;
         });
         this.animations.remove_if(a => {
-            a.Update();
+            a.Update(this);
             return a.times_played >= a.times_to_play;
+        });
+        this.projectiles.remove_if(p => {
+            p.Update(this);
+            return p.target_reached;
+        });
+        this.turrets.remove_if(t => {
+            t.Update(this);
+            return false;
         });
     }
     Render()
@@ -657,6 +752,8 @@ class GameManager
         this.path.Render();
         this.waveSpawner.enemies.forEach(e => { e.Render(); })
         this.animations.forEach(a => { a.Render(); })
+        this.projectiles.forEach(p => { p.Render(); })
+        this.turrets.forEach(t => { t.Render(); })
     }
     Reset()
     {
