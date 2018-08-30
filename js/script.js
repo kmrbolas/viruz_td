@@ -118,7 +118,7 @@ function RenderRectangle(fillStyle, strokeStyle, lineWidth, pos, size)
 }
 function RenderLifeBar(life, max_life, pos, size)
 {
-    RenderRectangleStroked("#999", 1, pos, size);
+    RenderRectangle("#999", "#000", 1, pos, size);
     let p = life / max_life;
     size.x *= p;
     let color = p >= .8 ? "#0F0" : p >= .6 ? "#DF0" : p >= .4 ? "#FF0" : p >= .2 ? "#F90" : "#F00";
@@ -352,12 +352,13 @@ let sprites =
 }
 class Animation extends Transformable
 {
-    constructor(frame_rate, sprites, transform = new Transform())
+    constructor(frame_rate, sprites, transform = new Transform(), opacity = 1)
     {
         super(transform);
         this.sprites = sprites;
         this.sprite_index = 0;
         this.times_played = 0;
+        this.opacity = opacity;
         this.timer = new Timer(1 / frame_rate, () => { 
             this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
             if (this.sprite_index == 0)
@@ -371,7 +372,10 @@ class Animation extends Transformable
     Render()
     {
         this.current_sprite.transform = this.transform;
+        let old_alpha = context.globalAlpha;
+        context.globalAlpha = this.opacity;
         this.current_sprite.Render();
+        context.globalAlpha = old_alpha;
     }
     Update()
     {
@@ -388,6 +392,7 @@ let animations =
 {
     spider: Animation.CreateArray(12, sprites.spider),
     beetle: Animation.CreateArray(12, sprites.beetle),
+    wasp: Animation.CreateArray(60, sprites.wasp),
     machine_gun: new Animation(12, sprites.machine_gun),
     anti_air: new Animation(12, sprites.anti_air),
     explosion: new Animation(30, sprites.explosion),
@@ -473,30 +478,10 @@ class Enemy extends KillableEntity
         this.speed = speed;
         this.traveled_distance = 0;
         this.path_index = 0;
-<<<<<<< HEAD
-        this.path = path;
-        this.org = Math.random() * 30 - 15;
-    }
-    get turn_speed() { return this.speed / 30; }
-    get destination()
-    {
-        return this.path == null ? this.position : this.path.GetDestinationByIndex(this.path_index);
-    }
-    get destination_direction()
-    {
-        return Vector2.sub(this.destination, this.position).normalized;
-    }
-    get core_reached()
-    {
-        return this.path == null || this.path.positions.length == this.path_index;
-    }
-    Update()
-=======
         this.org = Math.random() * 30 - 15;
     }
     get turn_speed() { return this.speed / 10; }
     Update(game_manager)
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
     {
         let path = game_manager.path;
         if (this.path_index == 0)
@@ -508,14 +493,11 @@ class Enemy extends KillableEntity
         let dest = path.GetDestinationByIndex(this.path_index);
         let perp = path.GetDirectionByIndex(this.path_index).perp;
         dest = dest.add(perp.mult(this.org));
+        this.traveled_distance += this.speed * Time.deltaTime;
         this.transform.MoveTo(dest, this.speed * Time.deltaTime);
         this.transform.FaceTo(dest, this.turn_speed * Time.deltaTime);
         if (Vector2.distance(this.transform.position, dest) <= 5 * this.speed * Time.deltaTime)
         {
-<<<<<<< HEAD
-            this.path_index++;
-=======
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
             this.org = -this.org;
             if (this.path_index++ >= path.positions.length)
             {
@@ -538,26 +520,11 @@ class Enemy extends KillableEntity
     }
     SpawnAdjacent(game_manager, to_spawn, d = Math.random() * 20 - 10)
     {
-<<<<<<< HEAD
-        let d = this.destination_direction.perp;
-        let s = 1;
-        to_spawn.forEach(e => {
-            e.traveled_distance = this.traveled_distance;
-            e.rotation = this.rotation;
-            e.path_index = this.path_index;
-            let delta = Math.random() * 10 + 15;
-            delta *= s;
-            s *= -1;
-            e.position = Vector2.add(this.position, d.mult(delta));
-        })
-        this.manager.AddEntities(...to_spawn);
-=======
         to_spawn.transform.position = Vector2.angleVector(this.transform.rotation).perp.mult(d).add(this.transform.position);
         to_spawn.transform.rotation = this.transform.rotation;
         to_spawn.traveled_distance = this.traveled_distance;
         to_spawn.path_index = this.path_index;
-        game_manager.waveSpawner.enemies.push(to_spawn);
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
+        game_manager.wave_path.enemies.push(to_spawn);
     }
 }
 class AnimEnemy extends Enemy
@@ -567,9 +534,9 @@ class AnimEnemy extends Enemy
         super(speed, max_life, transform);
         this.anim = anim.copy;
     }
-    Update(path)
+    Update(game_manager)
     {
-        super.Update(path);
+        super.Update(game_manager);
         this.anim.Update();
     }
     Render()
@@ -595,7 +562,7 @@ class EnemyFactory
     }
     CreateByRank(rank)
     {
-        let e = new AnimEnemy(this.anims[rank], this.base_speed, this.base_life * Math.pow(2, rank));
+        let e = new AnimEnemy(this.anims[rank], this.base_speed, this.base_life * Math.pow(1.5, rank));
         e.transform.scale = this.base_scale + .05 * rank;
         e.factory = this;
         e.type = this.type;
@@ -605,7 +572,7 @@ class EnemyFactory
 }
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
+let wasp_factory = new EnemyFactory(animations.wasp, .4, 100, 125, 1);
 class Projectile extends Transformable
 {
     constructor(aoe, speed, target, transform = new Transform())
@@ -628,14 +595,14 @@ class Projectile extends Transformable
                 if (Vector2.distance(e !== this.target && e.transform.position, this.transform.position) <= this.aoe)
                     targets.push(e);
             });
-            this.OnHit(targets);
+            this.OnHit(targets, game_manager);
         }
     }
     Render()
     {
         RenderRectangleFilled("#F00", this.transform.position, vec(25, 25));
     }
-    OnHit(targets)
+    OnHit(targets, game_manager)
     {
 
     }
@@ -663,7 +630,7 @@ function create_bullet(sprite, damage, chains_number, aoe, speed, target, transf
     }
     return bullet;
 }
-function create_rocket(sprite, damage, chains_number, aoe, speed, target, transform)
+function create_rocket(sprite, explosion, damage, aoe, speed, target, transform)
 {
     let bullet = new Projectile(aoe, speed, target, transform);
     bullet.sprite = sprite;
@@ -672,30 +639,35 @@ function create_rocket(sprite, damage, chains_number, aoe, speed, target, transf
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
+    bullet.explosion = explosion;
     bullet.damage = damage;
-    bullet.chains_number = chains_number;
-    bullet.OnHit = function(targets)
+    bullet.OnHit = function(targets, game_manager)
     {
-        targets[0].life -= this.damage;
-        if (targets.length == 1 || this.chains_number == 0)
-            return;
-        this.target = targets[1];
-        this.chains_number--;
-        this.target_reached = false;
+        targets.forEach(t => {
+            t.life -= this.damage;
+        });
+        let ex = this.explosion.copy;
+        ex.opacity = .8;
+        ex.transform = this.transform;
+        ex.transform.scale = this.aoe / 60;
+        game_manager.PlayAnimation(ex);
     }
     return bullet;
 }
 class Turret extends Transformable
 {
-    constructor(fire_rate, range, transform = new Transform())
+    constructor(fire_rate, range, aoe, transform = new Transform())
     {
         super(transform);
         this.timer = new Timer(1 / fire_rate);
         this.range = range;
+        this.range = aoe;
     }
+    get fire_rate() { return this.timer.frequency; }
+    set fire_rate(value) { this.timer.frequency = value; }
     Update(game_manager)
     {
-
+        this.timer.Update();
     }
 }
 class TurretFactory
@@ -719,6 +691,11 @@ class WavePath extends Timer
         this.wave_index = 0;
         this.enemy_index = 0;
     }
+    Update()
+    {
+        super.Update();
+        this.enemies = this.enemies.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
+    }
     OnTimerTick()
     {
         if (this.wave_index == this.waves.length)
@@ -739,50 +716,36 @@ class WavePath extends Timer
     {
         this.wave_index = 0;
         this.enemy_index = 0;
-<<<<<<< HEAD
-=======
         this.enemies = new Array(0);
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
     }
 }
 class GameManager
 {
     constructor(background_sprite, path, waves)
     {
-<<<<<<< HEAD
-        this.anims = anims;
-        this.base_scale = base_scale;
-        this.base_speed = base_speed;
-        this.base_life = base_life;
-        this.type = type;
-        this.Create = new Array(0);
-        for (let i = 0; i < this.anims.length; i++)
-            this.Create.push(this.CreateByRank.bind(this, i));
-=======
         this.background_sprite = background_sprite;        
         this.path = path;
         this.waves = waves;
-        this.waveSpawner = new WaveSpawner(this.waves);
+        this.wave_path = new WavePath(this.waves);
         this.animations = new Array(0);
         this.projectiles = new Array(0);
         this.turrets = new Array(0);
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
     }
-    get enemies() { return this.waveSpawner.enemies; }
+    get enemies() { return this.wave_path.enemies; }
     PlayAnimation(anim, times_to_play = 1)
     {
-        let a = anim.copy;
-        a.times_to_play = times_to_play;
-        this.animations.push(a);
+        anim.times_to_play = times_to_play;
+        this.animations.push(anim);
     }
     Update()
     {
-        if (this.enemies.length > 0)
+        this.wave_path.Update();
+        if (this.enemies.length > 0 && Input.mouseClick)
         {
-            this.projectiles.push(create_bullet(sprites.bullet, 20, 2, 100, 600, this.enemies[0], trans(Input.mousePos)));
+            this.projectiles.push(create_bullet(sprites.bullet, 50, 2, 100, 600, this.enemies[0], trans(Input.mousePos)));
+            //this.projectiles.push(create_rocket(sprites.rocket, animations.explosion_realistic, 30, 100, 400, this.enemies[0], trans(Input.mousePos)));
         }
-        this.waveSpawner.Update();
-        this.waveSpawner.enemies.remove_if(e => {
+        this.enemies.remove_if(e => {
             e.Update(this);
             return e.is_dead;
         });
@@ -803,91 +766,20 @@ class GameManager
     {
         this.background_sprite.Render();
         this.path.Render();
-        this.waveSpawner.enemies.forEach(e => { e.Render(); })
+        this.wave_path.enemies.forEach(e => { e.Render(); })
         this.animations.forEach(a => { a.Render(); })
         this.projectiles.forEach(p => { p.Render(); })
         this.turrets.forEach(t => { t.Render(); })
     }
     Reset()
     {
-        this.waveSpawner.Reset();
+        this.wave_path.Reset();
     }
-<<<<<<< HEAD
 }
-class GameManager extends EntityManager
-{
-    constructor(background, wave_paths)
-    {
-        super(...wave_paths);
-        this.background = background;
-        this.wave_paths = wave_paths;
-        this.selected_entity = null;
-    }
-    Render()
-    {
-        super.Render();
-    }
-    Update()
-    {
-        super.Update();
-        if (Input.mouseClick)
-        {
-            let entities = this.OverlapCircle(new Circle2D(Input.mousePos, 20));
-            entities = entities.sort((a, b) => {
-                return Vector2.distance(Input.mousePos, b.position) - Vector2.distance(Input.mousePos, a.position);
-            });
-            selected_entity = entities.length == 0 ? null : entities[0];
-        }
-    }
-    Reset()
-    {
-        wave_paths.forEach(wp => { wp.Reset(); });
-    }
-
-}
-let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
-let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory(animations.spider, .4, 100, 125, 1);
-
-let paths =
-[
-    new Path(sprites.track, new KillableEntity(1000, vec(625, 540)), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450))
-];
-let waves = 
-[
-    [
-        wave(3),
-        wave(.5,
-        spider_factory.Create[0], 10),
-        wave(3),
-        wave(.5, spider_factory.Create[1], 3),
-        wave(3),
-        wave(.5,
-        spider_factory.Create[0], 10),
-        wave(3),
-        wave(.5, spider_factory.Create[1], 3),
-        wave(3),
-        wave(.5,
-        spider_factory.Create[0], 10),
-        wave(3),
-        wave(.5, spider_factory.Create[1], 3),
-    ]
-];
-let wave_paths =
-[
-    [new WavePath(paths[0], waves[0])]
-];
-let levels = 
-[
-    new GameManager(wave_paths[0])
-];
-=======
-}
->>>>>>> 187ec9233892e11e08f1c5b680dc1fe1ecea2f45
 
 let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
-// [wave(.5, spider_factory.Create[0], 1)]);
-[wave(3), wave(.5, spider_factory.Create[4], 10), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
+[wave(.5, wasp_factory.Create[4], 2)]);
+// [wave(3), wave(.5, wasp_factory.Create[4], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
 
 function Start()
 {
