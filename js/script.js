@@ -313,19 +313,20 @@ class EntityManager
         entities.forEach(e => { this.RemoveEntity(e); });
     }
 }
-class Animation extends Transformable
+class Animation extends Entity
 {
-    constructor(frame_rate, sprites, transform = new Transform(), opacity = 1)
+    constructor(frame_rate, sprites, transform = new Transform(), opacity = 1, times_to_play = 1)
     {
         super(transform);
         this.sprites = sprites;
         this.sprite_index = 0;
         this.times_played = 0;
+        this.times_to_play = 0;
         this.opacity = opacity;
-        this.timer = new Timer(1 / frame_rate, () => { 
+        this.timer = new Timer(1 / frame_rate, () => {
             this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
-            if (this.sprite_index == 0)
-                this.times_played++;
+            if (this.sprite_index == 0 && this.times_played++ == this.times_played)
+                this.Release();
         });
     }
     get copy() { return new Animation(this.frame_rate, this.sprites, this.transform); }
@@ -361,7 +362,7 @@ let animations =
     explosion: new Animation(30, sprites.explosion),
     explosion_realistic: new Animation(120, sprites.explosion_realistic),
 }
-class KillableEntity extends Transformable
+class KillableEntity extends Entity
 {
     constructor(max_life, transform = new Transform())
     {
@@ -372,7 +373,19 @@ class KillableEntity extends Transformable
     get is_alive() { return this.life > 0; }
     get is_dead() { return !this.is_alive; }
     get life() { return this._life; }
-    set life(value) { this._life = Math.clamp(value, 0, this.max_life); }
+    set life(value)
+    {
+        value = Math.clamp(value, 0, this.max_life);
+        if (this._life == value)
+            return;
+        if (value == 0)
+            this.OnDeath();
+        this._life = value;
+    }
+    OnDeath()
+    {
+        this.Release();
+    }
     Render()
     {
         this.RenderLifeBar();
@@ -442,52 +455,53 @@ class Enemy extends KillableEntity
         this.traveled_distance = 0;
         this.path_index = 0;
         this.org = Math.random() * 30 - 15;
+        this.path = null;
     }
-    get turn_speed() { return this.speed / 10; }
-    Update(game_manager)
+    Update()
     {
-        let path = game_manager.path;
         if (this.path_index == 0)
         {
-            this.transform.position = path.origin;
-            this.transform.FaceTo(path.GetDestinationByIndex(++this.path_index));
+            this.transform.position = this.path.origin;
+            this.transform.FaceTo(this.path.GetDestinationByIndex(++this.path_index));
             return;
         }
         let dest = path.GetDestinationByIndex(this.path_index);
         let perp = path.GetDirectionByIndex(this.path_index).perp;
         dest = dest.add(perp.mult(this.org));
-        this.traveled_distance += this.speed * Time.deltaTime;
-        this.transform.MoveTo(dest, this.speed * Time.deltaTime);
-        this.transform.FaceTo(dest, this.turn_speed * Time.deltaTime);
-        if (Vector2.distance(this.transform.position, dest) <= 5 * this.speed * Time.deltaTime)
+        let delta = this.speed * Time.deltaTime;
+        this.traveled_distance += delta;
+        this.transform.MoveTo(dest, delta);
+        this.transform.FaceTo(dest, delta / 10);
+        if (Vector2.distance(this.transform.position, dest) <= 5 * delta)
         {
             this.org = -this.org;
             if (this.path_index++ >= path.positions.length)
-            {
-                path.core.life -= this.life;
-                this.life = 0;
-            }
+                this.OnReachCore(this.path.core);
         }
         if (this.is_dead)
         {
             let ex = animations.explosion.copy;
             ex.transform = this.transform;
             ex.transform.scale *= 1.5;
-            game_manager.PlayAnimation(ex);
+            this.manager.AddEntity(ex);
             if (this.rank < 1) return;
-            this.SpawnAdjacent(game_manager, this.factory.CreateByRank(this.rank - 1));
+            this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1));
             if (this.rank < 3) return;
-            this.SpawnAdjacent(game_manager, this.factory.CreateByRank(this.rank - 1));
-            return;
+            this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1));
         }
     }
-    SpawnAdjacent(manager, to_spawn, d = (Math.random() - .5) * 2 * (Math.random() * 30 + 10))
+    OnReachCore(core)
+    {
+        path.core.life -= this.life;
+        this.life = 0;
+    }
+    SpawnAdjacent(to_spawn, d = (Math.random() - .5) * 2 * (Math.random() * 30 + 10))
     {
         to_spawn.transform.position = Vector2.angleVector(this.transform.rotation).perp.mult(d).add(this.transform.position);
         to_spawn.transform.rotation = this.transform.rotation;
         to_spawn.traveled_distance = this.traveled_distance;
         to_spawn.path_index = this.path_index;
-        manager.enemies.push(to_spawn);
+        this.manager.AddEntity(to_spawn);
     }
 }
 class AnimEnemy extends Enemy
