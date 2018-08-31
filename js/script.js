@@ -842,9 +842,9 @@ class GameManager
     RenderUI()
     {
         RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
-        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 200));
+        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
         if (this.selected == null)
             return;
         this.selected.transform.push();
