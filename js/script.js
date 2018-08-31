@@ -78,6 +78,7 @@ class Vector2
 	}
 
 };
+function vec(x, y) { return new Vector2(x, y); }
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
 function RenderLines(style, lineWidth, ...positions)
@@ -136,89 +137,11 @@ let Input =
     mousePos: vec(0, 0),
     log(s) { console.log(s); },
 }
-class Rectangle2D
+let Player =
 {
-    constructor(position, size)
-    {
-        this.position = vec(position.x, position.y);
-        this.size = vec(size.x, size.y);
-    }
-    get copy() { return new Rectangle2D(this.position, this.size); }
-    get right() { return this.position.x + this.size.x; }
-    get bottom() { return this.position.y + this.size.y; }
-    get center() { return vec(this.position.x + this.size.x / 2, this.position.y + this.size.y / 2); }
-    set center(value) { this.position = vec(value.x, value.y).sub(Vector2.div(this.size, 2)); }
-    IsInside(position)
-    {
-        return position.x >= this.position.x && position.x <= this.right && position.y >= this.position.y && position.y <= this.bottom;
-    }
-    static HasCollided(r1, r2)
-    {
-        return (r1.position.x >= r2.position.x && r1.position.x <= r2.right && r1.position.y >= r2.position.y && r1.position.y <= r2.bottom)
-            || (r2.position.x >= r1.position.x && r2.position.x <= r1.right && r2.position.y >= r1.position.y && r2.position.y <= r1.bottom);
-    }
-    Render(color = "#999", borderColor = "#000", lineWidth = 1)
-    {
-        this.RenderFilled(color);
-        this.RenderBorder(borderColor, lineWidth);
-    }
-    RenderFilled(color)
-    {
-        context.fillStyle = color;
-        context.fillRect(this.position.x, this.position.y, this.size.x, this.size.y);
-    }
-    RenderBorder(color, lineWidth)
-    {
-        context.strokeStyle = color;
-        context.lineWidth = lineWidth;
-        context.strokeRect(this.position.x, this.position.y, this.size.x, this.size.y);
-    }
-    RenderLifeBar(m, n)
-    {
-        this.Render("#999", "#000", 1);
-        let r = this.copy;
-        let p = m / n;
-        r.size.x *= p;
-        let color = p >= .8 ? "#0F0" : p >= .6 ? "#DF0" : p >= .4 ? "#FF0" : p >= .2 ? "#F90" : "#F00";
-        r.Render(color, "#000", 1);
-    }
-
+    level: 0,
+    gold: 200,
 }
-class Circle2D
-{
-    constructor(center_position, radius)
-    {
-        this.center_position = vec(center_position.x, center_position.y);
-        this.radius = radius;
-    }
-    get copy() { return new Circle2D(this.center_position, this.radius); }
-    get position() { return Vector2.sub(this.center_position, vec(this.radius, this.radius)); }
-    set position(value) { this.center_position = vec(value.x + this.radius, value.y + this.radius); }
-    IsInside(position) { return Vector2.distance(this.center_position, position) <= this.radius; }
-    Render(color = "#999", borderColor = "#000", lineWidth = 1, start = 0, end = 2 * Math.PI)
-    {
-        this.RenderFilled(color, start, end);
-        this.RenderBorder(borderColor, lineWidth, start, end);
-    }
-    RenderFilled(color, start = 0, end = 2 * Math.PI)
-    {
-        context.fillStyle = color;
-        context.beginPath();
-        context.arc(this.center_position.x, this.center_position.y, this.radius, start, end);
-        context.fill();
-    }
-    RenderBorder(color, lineWidth = 1, start = 0, end = 2 * Math.PI)
-    {
-        context.strokeStyle = color;
-        context.lineWidth = lineWidth;
-        context.beginPath();
-        context.arc(this.center_position.x, this.center_position.y, this.radius, start, end);
-        context.stroke();
-    }
-
-}
-function vec(x, y) { return new Vector2(x, y); }
-function rectangle(pos, size) { return new Rectangle2D(pos, size); }
 class Transform
 {
     constructor(position = vec(0, 0), rotation = 0, scale = 1)
@@ -226,8 +149,15 @@ class Transform
         this.position = position;
         this.rotation = rotation;
         this.scale = scale;
+        this.back = Array(0);
     }
     get copy() { return new Transform(this.position, this.rotation, this.scale); }
+    set(value)
+    {
+        this.position = value.position;
+        this.rotation = value.rotation;
+        this.scale = value.scale;
+    }
     FaceTo(position, t = 1)
     {
         let dir = Vector2.sub(position, this.position).normalized;
@@ -238,6 +168,8 @@ class Transform
         let direction = Vector2.sub(position, this.position).normalized;
         this.position = Vector2.add(this.position, direction.mult(amount));
     }
+    push() { this.back.push(this.copy); }
+    pop() { this.set(this.back.pop()); }
 }
 function trans(pos, rot, sca) { return new Transform(pos, rot, sca); }
 class Transformable
@@ -321,7 +253,6 @@ let sprites =
         Sprite.CreateSheet("images/enemies/spider_a_", 4, ".png"),
         Sprite.CreateArray("images/enemies/spider_d_0.png", "images/enemies/spider_c_1.png", "images/enemies/spider_b_0.png", "images/enemies/spider_a_1.png")
     ],
-
     beetle:
     [
         Sprite.CreateSheet("images/enemies/beetle_d_", 2, ".png"),
@@ -330,7 +261,6 @@ let sprites =
         Sprite.CreateSheet("images/enemies/beetle_a_", 2, ".png"),
         Sprite.CreateArray("images/enemies/beetle_d_0.png", "images/enemies/beetle_c_1.png", "images/enemies/beetle_b_0.png", "images/enemies/beetle_a_1.png")
     ],
-
     wasp:
     [
         Sprite.CreateSheet("images/enemies/wasp_d_", 5, ".png"),
@@ -339,7 +269,6 @@ let sprites =
         Sprite.CreateSheet("images/enemies/wasp_a_", 5, ".png"),
         Sprite.CreateArray("images/enemies/wasp_d_0.png", "images/enemies/wasp_c_1.png", "images/enemies/wasp_b_2.png", "images/enemies/wasp_a_3.png", "images/enemies/wasp_a_4.png")
     ],
-
     machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
     anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
     rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
@@ -392,7 +321,7 @@ let animations =
 {
     spider: Animation.CreateArray(12, sprites.spider),
     beetle: Animation.CreateArray(12, sprites.beetle),
-    wasp: Animation.CreateArray(60, sprites.wasp),
+    wasp: Animation.CreateArray(30, sprites.wasp),
     machine_gun: new Animation(12, sprites.machine_gun),
     anti_air: new Animation(12, sprites.anti_air),
     explosion: new Animation(30, sprites.explosion),
@@ -518,13 +447,13 @@ class Enemy extends KillableEntity
             return;
         }
     }
-    SpawnAdjacent(game_manager, to_spawn, d = Math.random() * 20 - 10)
+    SpawnAdjacent(manager, to_spawn, d = (Math.random() - .5) * 2 * (Math.random() * 30 + 10))
     {
         to_spawn.transform.position = Vector2.angleVector(this.transform.rotation).perp.mult(d).add(this.transform.position);
         to_spawn.transform.rotation = this.transform.rotation;
         to_spawn.traveled_distance = this.traveled_distance;
         to_spawn.path_index = this.path_index;
-        game_manager.wave_path.enemies.push(to_spawn);
+        manager.enemies.push(to_spawn);
     }
 }
 class AnimEnemy extends Enemy
@@ -543,7 +472,7 @@ class AnimEnemy extends Enemy
     {
         this.anim.transform = this.transform;
         this.anim.Render();
-        this.RenderLifeBar();
+        // this.RenderLifeBar();
     }
 
 }
@@ -572,7 +501,7 @@ class EnemyFactory
 }
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory(animations.wasp, .4, 100, 125, 1);
+let wasp_factory = new EnemyFactory(animations.wasp, .3, 100, 125, 1);
 class Projectile extends Transformable
 {
     constructor(aoe, speed, target, transform = new Transform())
@@ -582,9 +511,11 @@ class Projectile extends Transformable
         this.speed = speed;
         this.target = target;
         this.target_reached = false;
+        this.game_manager = null;
     }
     Update(game_manager)
     {
+        this.game_manager = game_manager;
         this.transform.FaceTo(this.target.transform.position);
         this.transform.MoveTo(this.target.transform.position, this.speed * Time.deltaTime);
         if (Vector2.distance(this.transform.position, this.target.transform.position) <= this.speed * Time.deltaTime)
@@ -595,31 +526,34 @@ class Projectile extends Transformable
                 if (Vector2.distance(e !== this.target && e.transform.position, this.transform.position) <= this.aoe)
                     targets.push(e);
             });
-            this.OnHit(targets, game_manager);
+            this.OnHit(targets);
         }
     }
     Render()
     {
         RenderRectangleFilled("#F00", this.transform.position, vec(25, 25));
     }
-    OnHit(targets, game_manager)
+    OnHit(targets)
     {
 
     }
 
 }
-function create_bullet(sprite, damage, chains_number, aoe, speed, target, transform)
+class Bullet extends Projectile
 {
-    let bullet = new Projectile(aoe, speed, target, transform);
-    bullet.sprite = sprite;
-    bullet.Render = function()
+    constructor(sprite, damage, chains_number, aoe, speed, target, transform = new Transform())
+    {
+        super(aoe, speed, target, transform);
+        this.sprite = sprite;
+        this.damage = damage;
+        this.chains_number = chains_number;
+    }
+    Render()
     {
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
-    bullet.damage = damage;
-    bullet.chains_number = chains_number;
-    bullet.OnHit = function(targets)
+    OnHit(targets)
     {
         targets[0].life -= this.damage;
         if (targets.length == 1 || this.chains_number == 0)
@@ -628,60 +562,191 @@ function create_bullet(sprite, damage, chains_number, aoe, speed, target, transf
         this.chains_number--;
         this.target_reached = false;
     }
-    return bullet;
 }
-function create_rocket(sprite, explosion, damage, aoe, speed, target, transform)
+class Rocket extends Projectile
 {
-    let bullet = new Projectile(aoe, speed, target, transform);
-    bullet.sprite = sprite;
-    bullet.Render = function()
+    constructor(sprite, explosion, damage, aoe, speed, target, transform)
+    {
+        super(aoe, speed, target, transform);
+        this.sprite = sprite;
+        this.explosion = explosion;
+        this.damage = damage;
+    }
+    Render()
     {
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
-    bullet.explosion = explosion;
-    bullet.damage = damage;
-    bullet.OnHit = function(targets, game_manager)
+    OnHit(targets)
     {
-        targets.forEach(t => {
-            t.life -= this.damage;
-        });
+        targets.forEach(t => { t.life -= this.damage; });
         let ex = this.explosion.copy;
         ex.opacity = .8;
         ex.transform = this.transform;
         ex.transform.scale = this.aoe / 60;
-        game_manager.PlayAnimation(ex);
+        this.game_manager.PlayAnimation(ex);
     }
-    return bullet;
 }
 class Turret extends Transformable
 {
-    constructor(fire_rate, range, aoe, transform = new Transform())
+    constructor(fire_rate, range, fov, transform = new Transform())
     {
         super(transform);
-        this.timer = new Timer(1 / fire_rate);
+        this.timer = new Timer(1 / fire_rate, this.OnTimerTick.bind(this));
         this.range = range;
-        this.range = aoe;
+        this.fov = fov * Math.PI / 180;
+        this.manager = null;
+        this.targets = Array(0);
+        this.targets_in_range = Array(0);
     }
     get fire_rate() { return this.timer.frequency; }
     set fire_rate(value) { this.timer.frequency = value; }
-    Update(game_manager)
+    get target() { return this.targets_in_range[0]; }
+    Shoot()
     {
-        this.timer.Update();
+
     }
+    UpdateTargets()
+    {
+        this.targets_in_range = this.manager.enemies.filter(e => { return Vector2.distance(e.transform.position, this.transform.position) <= this.range; });
+        this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
+    }
+    UpdateTargetsInRange()
+    {
+        this.targets = this.targets_in_range.filter(t => { return Vector2.sub(t.transform.position, this.transform.position).normalized.distance(Vector2.angleVector(this.transform.rotation)) <= this.fov / 2; });
+    }
+    UpdateRotation()
+    {
+        this.transform.FaceTo(this.targets_in_range[0].transform.position, 10 * Time.deltaTime);
+    }
+    Update(manager)
+    {
+        this.manager = manager;
+        this.UpdateTargets();
+        this.UpdateTargetsInRange();
+        this.timer.Update();
+        if (this.targets_in_range.length == 0)
+            return;
+        this.UpdateRotation();
+    }
+    OnTimerTick()
+    {
+        if (this.targets.length > 0)
+            this.Shoot();
+        else
+            this.timer.elapsed = this.timer.delay;
+    }
+    RenderRange(color = "#000")
+    {
+        let d = this.fov / 2;
+        let a1 = this.rotation - d;
+        let a2 = this.rotation + d;
+        let dir1 = Vector2.angleVector(a1).mult(this.range).add(this.transform.position);
+        let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.transform.position);
+        RenderLines(color, 1, dir1, this.transform.position, dir2);
+        let c = new Circle2D(this.transform.position, this.range);
+        context.save();
+        context.globalAlpha = .5;
+        c.Render("#FFF", color);
+        context.restore();
+    }
+}
+class MachineGun extends Turret
+{
+    constructor(sprites, create_bullet, fire_rate, range, fov, transform)
+    {
+        super(fire_rate, range, fov, transform);
+        this.sprites = sprites;
+        this.create_bullet = create_bullet;
+        this.left = false;
+    }
+    get bullet_position()
+    {
+        return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale));
+    }
+    Shoot()
+    {
+        this.left = !this.left;
+        this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
+        this.manager.projectiles.push(this.create_bullet());
+    }
+    Render()
+    {
+        if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
+        this.sprite.transform = this.transform;
+        this.sprite.Render();
+    }
+
+}
+class RocketLauncher extends Turret
+{
+    constructor(create_bullet, aoe, fire_rate, range, fov, position)
+    {
+        super(fire_rate, range, fov, position)
+        this.create_bullet = create_bullet;
+        this.aoe = aoe;
+        this.sprite = sprites.rocket_launcher[0];
+        this.left = false;
+        this.scale = .5;
+    }
+    get bullet_position() { return this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(this.transform.scale * 50)); }
+    Shoot()
+    {
+        this.manager.AddEntity(this.create_bullet());
+    }
+    UpdateTargets()
+    {
+        super.UpdateTargets();
+        this.targets = this.targets.sort((a, b) => {
+            let a1 = this.manager.enemies.filter(e => { return e !== this.target && Vector2.distance(e.transform.position, a.transform.position) <= this.aoe; });
+            let b1 = this.manager.enemies.filter(e => { return e !== this.target && Vector2.distance(e.transform.position, b.transform.position) <= this.aoe; });
+            return b1.length - a1.length;
+        });
+    }
+    Render()
+    {
+        this.sprite.transform = this.transform;
+        if (this.targets.length > 0)
+            this.sprite.position = this.position.add(Vector2.angleVector(this.rotation).mult(((this.delay - this.to_tick) / this.delay) * 10 ));
+        this.sprite.Render(this.position, this.rotation, this.scale);
+    }
+}
+class BasicTurret extends Turret
+{
+    constructor(base_sprite, cannon_sprite, fire_rate, range, fov, transform = new Transform())
+    {
+        super(fire_rate, range, fov, transform);
+        this.base_sprite = base_sprite;
+        this.cannon_sprite = cannon_sprite;
+    }
+    Update(manager)
+    {
+        super.Update(manager);
+    }
+    Render()
+    {
+        this.base_sprite.transform = this.transform;
+        this.base_sprite.transform.rotation = 0;
+        this.cannon_sprite.transform = this.transform;
+        if (this.targets.length > 0)
+            this.cannon_sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 ));
+        this.base_sprite.Render();
+        this.cannon_sprite.Render();
+    }
+
 }
 class TurretFactory
 {
-    constructor(cost, create_fn, enabled_sprite, disabled_sprite)
+    constructor(cost, create, enabled_sprite, disabled_sprite)
     {
         this.cost = cost;
-        this.create_fn = create_fn;
+        this.create = create;
         this.enabled_sprite = enabled_sprite;
         this.disabled_sprite = disabled_sprite;
     }
 
 }
-class WavePath extends Timer
+class WaveSpawner extends Timer
 {
     constructor(waves)
     {
@@ -726,12 +791,18 @@ class GameManager
         this.background_sprite = background_sprite;        
         this.path = path;
         this.waves = waves;
-        this.wave_path = new WavePath(this.waves);
+        this.wave_spawner = new WaveSpawner(this.waves);
         this.animations = new Array(0);
         this.projectiles = new Array(0);
         this.turrets = new Array(0);
+        this.turret_factory = null;
+        this.selected = null;
     }
-    get enemies() { return this.wave_path.enemies; }
+    get enemies() { return this.wave_spawner.enemies; }
+    IsValidPosition(position, d = 50)
+    {
+        return this.turrets.filter(t => { return Vector2.distance(position, t.transform.position) <= d; }).length == 0 && !this.path.IsInside(position, d);
+    }
     PlayAnimation(anim, times_to_play = 1)
     {
         anim.times_to_play = times_to_play;
@@ -739,11 +810,17 @@ class GameManager
     }
     Update()
     {
-        this.wave_path.Update();
-        if (this.enemies.length > 0 && Input.mouseClick)
+        this.wave_spawner.Update();
+        if (Input.mouseClick && this.turret_factory != null && this.turret_factory.cost <= Player.gold && this.IsValidPosition(Input.mousePos))
         {
-            this.projectiles.push(create_bullet(sprites.bullet, 50, 2, 100, 600, this.enemies[0], trans(Input.mousePos)));
-            //this.projectiles.push(create_rocket(sprites.rocket, animations.explosion_realistic, 30, 100, 400, this.enemies[0], trans(Input.mousePos)));
+            Player.gold -= this.turret_factory.cost;
+            this.turrets.push(this.turret_factory.create(Input.mousePos));
+            this.turret_factory = null;
+        }
+        if (Input.mouseClick)
+        {
+            let s = this.turrets.filter(t => { return Vector2.distance(t.transform.position, Input.mousePos) <= 20; });
+            this.selected = s.length > 0 ? s[0] : null;
         }
         this.enemies.remove_if(e => {
             e.Update(this);
@@ -766,26 +843,59 @@ class GameManager
     {
         this.background_sprite.Render();
         this.path.Render();
-        this.wave_path.enemies.forEach(e => { e.Render(); })
-        this.animations.forEach(a => { a.Render(); })
-        this.projectiles.forEach(p => { p.Render(); })
-        this.turrets.forEach(t => { t.Render(); })
+        this.wave_spawner.enemies.forEach(e => { e.Render(); });
+        this.wave_spawner.enemies.forEach(e => { e.RenderLifeBar(); });
+        this.animations.forEach(a => { a.Render(); });
+        this.projectiles.forEach(p => { p.Render(); });
+        this.turrets.forEach(t => { t.Render(); });        
     }
     Reset()
     {
-        this.wave_path.Reset();
+        this.wave_spawner.Reset();
     }
+}
+class Upgrade
+{
+    constructor(max_level)
+    {
+        this.max_level = max_level;
+        this._level = 0;
+    }
+    get level() { return this._level; }
+    set level(value) { this._level = Math.clamp(value, 0, this.max_level); }
+    get maxed() { return this._level == this.max_level; }
 }
 
 let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
 [wave(.5, wasp_factory.Create[4], 2)]);
 // [wave(3), wave(.5, wasp_factory.Create[4], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
 
+let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 600, this.target, trans(this.bullet_position)); }
+let machine_gun_factory = new TurretFactory(60, (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); });
+current_level.turret_factory = machine_gun_factory;
+
+current_level.turrets.push(new BasicTurret(sprites.explosion[0], sprites.anti_air[0], 2, 600, 30, trans(vec(200, 200))));
+
+function RenderUI(level)
+{
+    RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
+    RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
+    RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
+    RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 200));
+    if (level.selected == null)
+        return;
+    level.selected.transform.push();
+    level.selected.transform.position = vec(1040, 100);
+    level.selected.Render();
+    level.selected.transform.pop();
+}
+
 function Start()
 {
     sprites.grass.transform.scale = 1.2;
     sprites.grass.top_position = vec(0, 0);
     sprites.track.top_position = vec(0, 0);
+    sprites.machine_gun.forEach(s => { s.img.width *= .5; s.img.height *= .5; });
 }
 
 function Update()
@@ -796,6 +906,7 @@ function Update()
 function Render()
 {
     current_level.Render();
+    RenderUI(current_level);
 }
 
 let lastRender = 0;
