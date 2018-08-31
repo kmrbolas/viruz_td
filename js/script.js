@@ -839,6 +839,19 @@ class GameManager
             return false;
         });
     }
+    RenderUI()
+    {
+        RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
+        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
+        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
+        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 200));
+        if (this.selected == null)
+            return;
+        this.selected.transform.push();
+        this.selected.transform.position = vec(1040, 100);
+        this.selected.Render();
+        this.selected.transform.pop();
+    }
     Render()
     {
         this.background_sprite.Render();
@@ -847,7 +860,8 @@ class GameManager
         this.wave_spawner.enemies.forEach(e => { e.RenderLifeBar(); });
         this.animations.forEach(a => { a.Render(); });
         this.projectiles.forEach(p => { p.Render(); });
-        this.turrets.forEach(t => { t.Render(); });        
+        this.turrets.forEach(t => { t.Render(); });
+        this.RenderUI();
     }
     Reset()
     {
@@ -876,19 +890,7 @@ current_level.turret_factory = machine_gun_factory;
 
 current_level.turrets.push(new BasicTurret(sprites.explosion[0], sprites.anti_air[0], 2, 600, 30, trans(vec(200, 200))));
 
-function RenderUI(level)
-{
-    RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
-    RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
-    RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
-    RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 200));
-    if (level.selected == null)
-        return;
-    level.selected.transform.push();
-    level.selected.transform.position = vec(1040, 100);
-    level.selected.Render();
-    level.selected.transform.pop();
-}
+
 
 function Start()
 {
@@ -906,7 +908,6 @@ function Update()
 function Render()
 {
     current_level.Render();
-    RenderUI(current_level);
 }
 
 let lastRender = 0;
