@@ -140,7 +140,6 @@ let Input =
 let Player =
 {
     level: 0,
-    gold: 200,
 }
 class Transform
 {
@@ -172,16 +171,6 @@ class Transform
     pop() { this.set(this.back.pop()); }
 }
 function trans(pos, rot, sca) { return new Transform(pos, rot, sca); }
-class Transformable
-{
-    constructor(transform)
-    {
-        this._transform = new Transform();
-        this.transform = transform;
-    }
-    get transform() { return this._transform; }
-    set transform(value) { this._transform = value.copy; }
-}
 class Timer
 {
     constructor(delay, OnTimerTick = null)
@@ -194,10 +183,7 @@ class Timer
     get frequency() { return 1 / this.delay; }
     set frequency(value) { this.delay = 1 / value; }
     get to_tick() { return this.delay - this.elapsed; }
-    OnTimerTick()
-    {
-        
-    }
+    OnTimerTick() {  }
     Update()
     {
         this.elapsed += Time.deltaTime;
@@ -207,6 +193,16 @@ class Timer
         this.elapsed = 0;
     }
 
+}
+class Transformable
+{
+    constructor(transform)
+    {
+        this._transform = new Transform();
+        this.transform = transform;
+    }
+    get transform() { return this._transform; }
+    set transform(value) { this._transform = value.copy; }
 }
 class Sprite extends Transformable
 {
@@ -278,6 +274,44 @@ let sprites =
     explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
     track: new Sprite("images/background/Track01.png"),
     grass: new Sprite("images/background/grass.jpg"),
+}
+class Entity extends Transformable
+{
+    constructor(transform = new Transform())
+    {
+        super(transform);
+        this.manager = null;
+    }
+    Update() {  }
+    Render() {  }
+    Release() { if (this.manager != null) this.manager.RemoveEntity(this); }
+}
+class EntityManager
+{
+    constructor(...entities)
+    {
+        this.entities = new Array(0);
+        this.AddEntities(...entities);
+    }
+    AddEntity(entity)
+    {
+        if (this.entities.find(e => { return e === entity; }) != undefined)
+            return;
+        entity.manager = this;
+        this.entities.push(entity);
+    }
+    AddEntities(...entities)
+    {
+        entities.forEach(e => { this.AddEntity(e) });
+    }
+    RemoveEntity(entity)
+    {
+        this.entities.remove_if(e => { return e === entity; });
+    }
+    RemoveEntities(...entities)
+    {
+        entities.forEach(e => { this.RemoveEntity(e); });
+    }
 }
 class Animation extends Transformable
 {
