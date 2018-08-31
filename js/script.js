@@ -312,6 +312,10 @@ class EntityManager
     {
         entities.forEach(e => { this.RemoveEntity(e); });
     }
+    OverlapCircle(position, radius, callback = (e) => { return true; })
+    {
+        return this.entities.filter(e => { return Vector2.distance(e.transform.position, position) <= radius && callback(e); });
+    }
 }
 class Animation extends Entity
 {
@@ -478,17 +482,6 @@ class Enemy extends KillableEntity
             if (this.path_index++ >= path.positions.length)
                 this.OnReachCore(this.path.core);
         }
-        if (this.is_dead)
-        {
-            let ex = animations.explosion.copy;
-            ex.transform = this.transform;
-            ex.transform.scale *= 1.5;
-            this.manager.AddEntity(ex);
-            if (this.rank < 1) return;
-            this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1));
-            if (this.rank < 3) return;
-            this.SpawnAdjacent(this.factory.CreateByRank(this.rank - 1));
-        }
     }
     OnReachCore(core)
     {
@@ -511,9 +504,9 @@ class AnimEnemy extends Enemy
         super(speed, max_life, transform);
         this.anim = anim.copy;
     }
-    Update(game_manager)
+    Update()
     {
-        super.Update(game_manager);
+        super.Update();
         this.anim.Update();
     }
     Render()
@@ -550,28 +543,24 @@ class EnemyFactory
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
 let wasp_factory = new EnemyFactory(animations.wasp, .3, 100, 125, 1);
-class Projectile extends Transformable
+class Projectile extends Entity
 {
     constructor(aoe, speed, target, transform = new Transform())
     {
         super(transform);
         this.aoe = aoe;
         this.speed = speed;
-        this.target = target;
-        this.target_reached = false;
-        this.game_manager = null;
+        this.main_target = target;
     }
-    Update(game_manager)
+    Update()
     {
-        this.game_manager = game_manager;
-        this.transform.FaceTo(this.target.transform.position);
-        this.transform.MoveTo(this.target.transform.position, this.speed * Time.deltaTime);
-        if (Vector2.distance(this.transform.position, this.target.transform.position) <= this.speed * Time.deltaTime)
+        this.transform.FaceTo(this.main_target.transform.position);
+        this.transform.MoveTo(this.main_target.transform.position, this.speed * Time.deltaTime);
+        if (Vector2.distance(this.transform.position, this.main_target.transform.position) <= this.speed * Time.deltaTime)
         {
-            this.target_reached = true;
-            let targets = [this.target];
+            let targets = [this.main_target];
             game_manager.enemies.forEach(e => {
-                if (Vector2.distance(e !== this.target && e.transform.position, this.transform.position) <= this.aoe)
+                if (Vector2.distance(e !== this.main_target && e.transform.position, this.transform.position) <= this.aoe)
                     targets.push(e);
             });
             this.OnHit(targets);
@@ -583,7 +572,7 @@ class Projectile extends Transformable
     }
     OnHit(targets)
     {
-
+        this.Release();
     }
 
 }
@@ -605,10 +594,9 @@ class Bullet extends Projectile
     {
         targets[0].life -= this.damage;
         if (targets.length == 1 || this.chains_number == 0)
-            return;
-        this.target = targets[1];
+            this.Release();
+        this.main_target = targets[1];
         this.chains_number--;
-        this.target_reached = false;
     }
 }
 class Rocket extends Projectile
@@ -633,6 +621,7 @@ class Rocket extends Projectile
         ex.transform = this.transform;
         ex.transform.scale = this.aoe / 60;
         this.game_manager.PlayAnimation(ex);
+        this.Release();
     }
 }
 class Turret extends Transformable
@@ -656,7 +645,7 @@ class Turret extends Transformable
     }
     UpdateTargets()
     {
-        this.targets_in_range = this.manager.enemies.filter(e => { return Vector2.distance(e.transform.position, this.transform.position) <= this.range; });
+        this.targets_in_range = this.manager.entities.filter(e => { return e instanceof Enemy && Vector2.distance(e.transform.position, this.transform.position) <= this.range; });
         this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     UpdateTargetsInRange()
@@ -667,9 +656,8 @@ class Turret extends Transformable
     {
         this.transform.FaceTo(this.targets_in_range[0].transform.position, 10 * Time.deltaTime);
     }
-    Update(manager)
+    Update()
     {
-        this.manager = manager;
         this.UpdateTargets();
         this.UpdateTargetsInRange();
         this.timer.Update();
@@ -767,10 +755,6 @@ class BasicTurret extends Turret
         this.base_sprite = base_sprite;
         this.cannon_sprite = cannon_sprite;
     }
-    Update(manager)
-    {
-        super.Update(manager);
-    }
     Render()
     {
         this.base_sprite.transform = this.transform;
@@ -796,18 +780,13 @@ class TurretFactory
 }
 class WaveSpawner extends Timer
 {
-    constructor(waves)
+    constructor(path, waves)
     {
         super(waves[0].delay);
         this.enemies = new Array(0);
         this.waves = waves;
         this.wave_index = 0;
         this.enemy_index = 0;
-    }
-    Update()
-    {
-        super.Update();
-        this.enemies = this.enemies.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     OnTimerTick()
     {
@@ -822,24 +801,24 @@ class WaveSpawner extends Timer
             this.delay = this.waves[this.wave_index].delay;
             return;
         }
-        this.enemies.push(wave.create_enemy(this.path));
+        this.manager.AddEntity(wave.create_enemy(this.path));
         this.enemy_index++;
     }
     Reset()
     {
         this.wave_index = 0;
         this.enemy_index = 0;
-        this.enemies = new Array(0);
     }
 }
-class GameManager
+class GameManager extends EntityManager
 {
     constructor(background_sprite, path, waves)
     {
+        super();
         this.background_sprite = background_sprite;        
         this.path = path;
         this.waves = waves;
-        this.wave_spawner = new WaveSpawner(this.waves);
+        this.wave_spawner = new WaveSpawner(this.path, this.waves);
         this.animations = new Array(0);
         this.projectiles = new Array(0);
         this.turrets = new Array(0);
