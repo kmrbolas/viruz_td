@@ -141,6 +141,17 @@ let Player =
 {
     level: 0,
 }
+function Button(pos, size, text, fillStyle = "#FFF", strokeStyle = "#000", lineWidth = 0)
+{
+    RenderRectangle(fillStyle, strokeStyle, lineWidth, pos, size);
+    context.font = size.y + "px sans-serif";
+    let center = pos.add(size.div(2));
+    context.fillStyle = strokeStyle;
+    context.textAlign = 'center';
+    context.textBaseline='middle';
+    context.fillText(text, center.x, center.y);
+    return Input.mouseClick && Input.mousePos.x >= pos.x && Input.mousePos.x <= pos.x + size.x && Input.mousePos.y >= pos.y && Input.mousePos.y <= pos.y + size.y;
+}
 class Transform
 {
     constructor(position = vec(0, 0), rotation = 0, scale = 1)
@@ -293,6 +304,14 @@ class EntityManager
         this.entities = new Array(0);
         this.AddEntities(...entities);
     }
+    Update()
+    {
+        this.entities.forEach(e => { e.Update(); });
+    }
+    Render()
+    {
+        this.entities.forEach(e => { e.Render(); });
+    }
     AddEntity(entity)
     {
         if (this.entities.find(e => { return e === entity; }) != undefined)
@@ -312,7 +331,7 @@ class EntityManager
     {
         entities.forEach(e => { this.RemoveEntity(e); });
     }
-    OverlapCircle(position, radius, callback = (e) => { return true; })
+    OverlapCircle(position, radius, callback = e => { return true; })
     {
         return this.entities.filter(e => { return Vector2.distance(e.transform.position, position) <= radius && callback(e); });
     }
@@ -325,18 +344,20 @@ class Animation extends Entity
         this.sprites = sprites;
         this.sprite_index = 0;
         this.times_played = 0;
-        this.times_to_play = 0;
+        this.times_to_play = times_to_play;
         this.opacity = opacity;
-        this.timer = new Timer(1 / frame_rate, () => {
-            this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
-            if (this.sprite_index == 0 && this.times_played++ == this.times_played)
-                this.Release();
-        });
+        this.timer = new Timer(1 / frame_rate, this.OnTimerTick.bind(this));
     }
     get copy() { return new Animation(this.frame_rate, this.sprites, this.transform); }
     get frame_rate() { return this.timer.frequency; }
     set frame_rate(value) { this.timer.frequency = value; }
     get current_sprite() { return this.sprites[this.sprite_index]; }
+    OnTimerTick()
+    {
+        this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
+        if (this.sprite_index == 0 && this.times_played++ >= this.times_to_play)
+            this.Release();
+    }
     Render()
     {
         this.current_sprite.transform = this.transform;
@@ -382,9 +403,9 @@ class KillableEntity extends Entity
         value = Math.clamp(value, 0, this.max_life);
         if (this._life == value)
             return;
+        this._life = value;
         if (value == 0)
             this.OnDeath();
-        this._life = value;
     }
     OnDeath()
     {
@@ -469,8 +490,8 @@ class Enemy extends KillableEntity
             this.transform.FaceTo(this.path.GetDestinationByIndex(++this.path_index));
             return;
         }
-        let dest = path.GetDestinationByIndex(this.path_index);
-        let perp = path.GetDirectionByIndex(this.path_index).perp;
+        let dest = this.path.GetDestinationByIndex(this.path_index);
+        let perp = this.path.GetDirectionByIndex(this.path_index).perp;
         dest = dest.add(perp.mult(this.org));
         let delta = this.speed * Time.deltaTime;
         this.traveled_distance += delta;
@@ -479,13 +500,13 @@ class Enemy extends KillableEntity
         if (Vector2.distance(this.transform.position, dest) <= 5 * delta)
         {
             this.org = -this.org;
-            if (this.path_index++ >= path.positions.length)
+            if (this.path_index++ >= this.path.positions.length)
                 this.OnReachCore(this.path.core);
         }
     }
     OnReachCore(core)
     {
-        path.core.life -= this.life;
+        core.life -= this.life;
         this.life = 0;
     }
     SpawnAdjacent(to_spawn, d = (Math.random() - .5) * 2 * (Math.random() * 30 + 10))
@@ -530,13 +551,27 @@ class EnemyFactory
         for (let i = 0; i < anims.length; i++)
             this.Create.push(this.CreateByRank.bind(this, i));
     }
-    CreateByRank(rank)
+    CreateByRank(rank, path)
     {
         let e = new AnimEnemy(this.anims[rank], this.base_speed, this.base_life * Math.pow(1.5, rank));
         e.transform.scale = this.base_scale + .05 * rank;
         e.factory = this;
         e.type = this.type;
         e.rank = rank;
+        e.path = path;
+        e.OnDeath = function()
+        {
+            let ex = animations.explosion.copy;
+            ex.transform = this.transform;
+            ex.transform.scale *= 1.5;
+            this.manager.AddEntity(ex);
+            if (this.rank > 1)
+            {
+                e.SpawnAdjacent(this.factory.Create[rank - 1](this.path));
+                e.SpawnAdjacent(this.factory.Create[rank - 1](this.path));
+            }
+            this.Release();
+        };
         return e;
     }
 }
@@ -557,14 +592,7 @@ class Projectile extends Entity
         this.transform.FaceTo(this.main_target.transform.position);
         this.transform.MoveTo(this.main_target.transform.position, this.speed * Time.deltaTime);
         if (Vector2.distance(this.transform.position, this.main_target.transform.position) <= this.speed * Time.deltaTime)
-        {
-            let targets = [this.main_target];
-            game_manager.enemies.forEach(e => {
-                if (Vector2.distance(e !== this.main_target && e.transform.position, this.transform.position) <= this.aoe)
-                    targets.push(e);
-            });
-            this.OnHit(targets);
-        }
+            this.OnHit(this.manager.OverlapCircle(this.main_target.transform.position, this.aoe, e => { return e instanceof Enemy; }));
     }
     Render()
     {
@@ -624,7 +652,7 @@ class Rocket extends Projectile
         this.Release();
     }
 }
-class Turret extends Transformable
+class Turret extends Entity
 {
     constructor(fire_rate, range, fov, transform = new Transform())
     {
@@ -645,7 +673,7 @@ class Turret extends Transformable
     }
     UpdateTargets()
     {
-        this.targets_in_range = this.manager.entities.filter(e => { return e instanceof Enemy && Vector2.distance(e.transform.position, this.transform.position) <= this.range; });
+        this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.range, (e) => { return e instanceof Enemy; });
         this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     UpdateTargetsInRange()
@@ -669,8 +697,6 @@ class Turret extends Transformable
     {
         if (this.targets.length > 0)
             this.Shoot();
-        else
-            this.timer.elapsed = this.timer.delay;
     }
     RenderRange(color = "#000")
     {
@@ -695,6 +721,7 @@ class MachineGun extends Turret
         this.sprites = sprites;
         this.create_bullet = create_bullet;
         this.left = false;
+        this.transform.scale = .5
     }
     get bullet_position()
     {
@@ -704,7 +731,7 @@ class MachineGun extends Turret
     {
         this.left = !this.left;
         this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
-        this.manager.projectiles.push(this.create_bullet());
+        this.manager.AddEntity(this.create_bullet());
     }
     Render()
     {
@@ -723,7 +750,7 @@ class RocketLauncher extends Turret
         this.aoe = aoe;
         this.sprite = sprites.rocket_launcher[0];
         this.left = false;
-        this.scale = .5;
+        this.transform.scale = .5;
     }
     get bullet_position() { return this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(this.transform.scale * 50)); }
     Shoot()
@@ -734,8 +761,8 @@ class RocketLauncher extends Turret
     {
         super.UpdateTargets();
         this.targets = this.targets.sort((a, b) => {
-            let a1 = this.manager.enemies.filter(e => { return e !== this.target && Vector2.distance(e.transform.position, a.transform.position) <= this.aoe; });
-            let b1 = this.manager.enemies.filter(e => { return e !== this.target && Vector2.distance(e.transform.position, b.transform.position) <= this.aoe; });
+            let a1 = this.manager.OverlapCircle(a.transform.position, this.range, e => { return e instanceof Enemy; });
+            let b1 = this.manager.OverlapCircle(b.transform.position, this.range, e => { return e instanceof Enemy; });
             return b1.length - a1.length;
         });
     }
@@ -778,15 +805,17 @@ class TurretFactory
     }
 
 }
-class WaveSpawner extends Timer
+class WavePath extends Entity
 {
     constructor(path, waves)
     {
-        super(waves[0].delay);
+        super();
         this.enemies = new Array(0);
+        this.path = path;
         this.waves = waves;
         this.wave_index = 0;
         this.enemy_index = 0;
+        this.timer = new Timer(waves[0].delay, this.OnTimerTick.bind(this));
     }
     OnTimerTick()
     {
@@ -804,6 +833,14 @@ class WaveSpawner extends Timer
         this.manager.AddEntity(wave.create_enemy(this.path));
         this.enemy_index++;
     }
+    Update()
+    {
+        this.timer.Update();
+    }
+    Render()
+    {
+        this.path.Render();
+    }
     Reset()
     {
         this.wave_index = 0;
@@ -818,26 +855,19 @@ class GameManager extends EntityManager
         this.background_sprite = background_sprite;        
         this.path = path;
         this.waves = waves;
-        this.wave_spawner = new WaveSpawner(this.path, this.waves);
-        this.animations = new Array(0);
-        this.projectiles = new Array(0);
-        this.turrets = new Array(0);
+        this.wave_spawner = new WavePath(path, waves);
+        this.AddEntity(this.wave_spawner);
         this.turret_factory = null;
         this.selected = null;
     }
     get enemies() { return this.wave_spawner.enemies; }
     IsValidPosition(position, d = 50)
     {
-        return this.turrets.filter(t => { return Vector2.distance(position, t.transform.position) <= d; }).length == 0 && !this.path.IsInside(position, d);
-    }
-    PlayAnimation(anim, times_to_play = 1)
-    {
-        anim.times_to_play = times_to_play;
-        this.animations.push(anim);
+        return this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
     }
     Update()
     {
-        this.wave_spawner.Update();
+        super.Update();
         if (Input.mouseClick && this.turret_factory != null && this.turret_factory.cost <= Player.gold && this.IsValidPosition(Input.mousePos))
         {
             Player.gold -= this.turret_factory.cost;
@@ -846,31 +876,16 @@ class GameManager extends EntityManager
         }
         if (Input.mouseClick)
         {
-            let s = this.turrets.filter(t => { return Vector2.distance(t.transform.position, Input.mousePos) <= 20; });
+            let s = this.OverlapCircle(Input.mousePos, 20);
             this.selected = s.length > 0 ? s[0] : null;
         }
-        this.enemies.remove_if(e => {
-            e.Update(this);
-            return e.is_dead;
-        });
-        this.animations.remove_if(a => {
-            a.Update(this);
-            return a.times_played >= a.times_to_play;
-        });
-        this.projectiles.remove_if(p => {
-            p.Update(this);
-            return p.target_reached;
-        });
-        this.turrets.remove_if(t => {
-            t.Update(this);
-            return false;
-        });
     }
     RenderUI()
     {
+        this.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
         RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
-        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 200));
+        RenderRectangle("#777", "#000", 2, vec(800, 0), vec(480, 200));
         RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
         if (this.selected == null)
             return;
@@ -882,12 +897,7 @@ class GameManager extends EntityManager
     Render()
     {
         this.background_sprite.Render();
-        this.path.Render();
-        this.wave_spawner.enemies.forEach(e => { e.Render(); });
-        this.wave_spawner.enemies.forEach(e => { e.RenderLifeBar(); });
-        this.animations.forEach(a => { a.Render(); });
-        this.projectiles.forEach(p => { p.Render(); });
-        this.turrets.forEach(t => { t.Render(); });
+        super.Render();
         this.RenderUI();
     }
     Reset()
@@ -915,9 +925,7 @@ let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 60
 let machine_gun_factory = new TurretFactory(60, (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); });
 current_level.turret_factory = machine_gun_factory;
 
-current_level.turrets.push(new BasicTurret(sprites.explosion[0], sprites.anti_air[0], 2, 600, 30, trans(vec(200, 200))));
-
-
+current_level.AddEntity(new BasicTurret(sprites.explosion[0], sprites.anti_air[0], 2, 600, 30, trans(vec(200, 200))));
 
 function Start()
 {
