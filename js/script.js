@@ -125,6 +125,28 @@ function RenderLifeBar(life, max_life, pos, size)
     let color = p >= .8 ? "#0F0" : p >= .6 ? "#DF0" : p >= .4 ? "#FF0" : p >= .2 ? "#F90" : "#F00";
     RenderRectangle(color, "#000", 1, pos, size);
 }
+function InsideRect(point, pos, size)
+{
+    return point.x >= pos.x && point.x <= pos.x + size.x && point.y >= pos.y && point.y <= pos.y + size.y;
+}
+function RenderCircleFilled(pos, radius, style = "#999")
+{
+    context.fillStyle = style;
+    context.arc(pos.x, pos.y, radius);
+    context.fill();
+}
+function RenderCircleStroked(pos, radius, style = "#000", lineWidth = 1)
+{
+    context.strokeStyle = style;
+    context.lineWidth = lineWidth;
+    context.arc(pos.x, pos.y, radius);
+    context.stroke();
+}
+function RenderCircle(pos, radius, fillStyle = "#999", strokeStyle = "#000", lineWidth = 1)
+{
+    RenderCircleFilled(fillStyle, pos, radius);
+    RenderCircleStroked(strokeStyle, lineWidth, pos, radius);
+}
 let Time =
 {
     deltaTime: 0,
@@ -144,13 +166,13 @@ let Player =
 function Button(pos, size, text, fillStyle = "#FFF", strokeStyle = "#000", lineWidth = 0)
 {
     RenderRectangle(fillStyle, strokeStyle, lineWidth, pos, size);
-    context.font = size.y + "px sans-serif";
+    context.font = "15px sans-serif";
     let center = pos.add(size.div(2));
     context.fillStyle = strokeStyle;
     context.textAlign = 'center';
     context.textBaseline='middle';
-    context.fillText(text, center.x, center.y);
-    return Input.mouseClick && Input.mousePos.x >= pos.x && Input.mousePos.x <= pos.x + size.x && Input.mousePos.y >= pos.y && Input.mousePos.y <= pos.y + size.y;
+    context.fillText(text, center.x, center.y, size.x);
+    return Input.mouseClick && InsideRect(Input.mousePos, pos, size);
 }
 class Transform
 {
@@ -620,9 +642,11 @@ class Bullet extends Projectile
     }
     OnHit(targets)
     {
+        if (targets.length == 0)
+            return this.Release();
         targets[0].life -= this.damage;
-        if (targets.length == 1 || this.chains_number == 0)
-            this.Release();
+        if (this.chains_number == 0 || targets.length == 1)
+            return this.Release();
         this.main_target = targets[1];
         this.chains_number--;
     }
@@ -707,6 +731,19 @@ class Turret extends Entity
         let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.transform.position);
         RenderLines(color, 1, dir1, this.transform.position, dir2);
         let c = new Circle2D(this.transform.position, this.range);
+        context.save();
+        context.globalAlpha = .5;
+        c.Render("#FFF", color);
+        context.restore();
+    }
+    static RenderRange(transform, range, fov = 0, color = "#000")
+    {
+        let d = fov / 2;
+        let a1 = transform.rotation - d;
+        let a2 = transform.rotation + d;
+        let dir1 = Vector2.angleVector(a1).mult(range).add(transform.position);
+        let dir2 = Vector2.angleVector(a2).mult(range).add(transform.position);
+        RenderLines(color, 1, dir1, transform.position, dir2);
         context.save();
         context.globalAlpha = .5;
         c.Render("#FFF", color);
@@ -805,6 +842,9 @@ class TurretFactory
     }
 
 }
+let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 600, this.target, trans(this.bullet_position)); }
+let create_mg = (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); }
+let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
 class WavePath extends Entity
 {
     constructor(path, waves)
@@ -857,27 +897,31 @@ class GameManager extends EntityManager
         this.waves = waves;
         this.wave_spawner = new WavePath(path, waves);
         this.AddEntity(this.wave_spawner);
-        this.turret_factory = null;
         this.selected = null;
     }
     get enemies() { return this.wave_spawner.enemies; }
     IsValidPosition(position, d = 50)
     {
-        return this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
+        return InsideRect(position, vec(15, 15), vec(800 - 2 * 15, 600 - 2 * 15)) && this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
     }
     Update()
     {
         super.Update();
-        if (Input.mouseClick && this.turret_factory != null && this.turret_factory.cost <= Player.gold && this.IsValidPosition(Input.mousePos))
-        {
-            Player.gold -= this.turret_factory.cost;
-            this.turrets.push(this.turret_factory.create(Input.mousePos));
-            this.turret_factory = null;
-        }
         if (Input.mouseClick)
         {
-            let s = this.OverlapCircle(Input.mousePos, 20);
-            this.selected = s.length > 0 ? s[0] : null;
+            if (this.selected instanceof TurretFactory)
+            {
+                if (this.IsValidPosition(Input.mousePos))
+                    this.AddEntity(this.selected.create(Input.mousePos));
+                else
+                    Input.log("Invalid Position!");
+                this.selected = null;
+            }
+            else if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
+            {
+                let s = this.OverlapCircle(Input.mousePos, 20, e => { return e instanceof Turret || e instanceof Enemy; });
+                this.selected = s.length > 0 ? s[0] : null;
+            }
         }
     }
     RenderUI()
@@ -887,17 +931,36 @@ class GameManager extends EntityManager
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
         RenderRectangle("#777", "#000", 2, vec(800, 0), vec(480, 200));
         RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
-        if (this.selected == null)
-            return;
-        this.selected.transform.push();
-        this.selected.transform.position = vec(1040, 100);
-        this.selected.Render();
-        this.selected.transform.pop();
+        if (this.selected instanceof Entity)
+        {
+            this.selected.transform.push();
+            this.selected.transform.position = vec(1040, 100);
+            this.selected.Render();
+            this.selected.transform.pop();
+        }
+        else if (this.selected instanceof TurretFactory)
+        {
+            let sprite = this.IsValidPosition(Input.mousePos) ? this.selected.enabled_sprite : this.selected.disabled_sprite;            
+            sprite.transform.scale = .5;
+            sprite.transform.position = vec(1040, 100);
+            sprite.Render();
+            if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
+            {
+                sprite.transform.position = Input.mousePos;
+                sprite.Render();
+            }
+        }
+        if (Button(vec(0 + 5, 600 + 5), vec(100, 50), "MachineGun - " + machine_gun_factory.cost + "g"))
+        {
+            this.selected = machine_gun_factory;
+        }
+        
     }
     Render()
     {
         this.background_sprite.Render();
         super.Render();
+        // if (this.selected instanceof Turret) this.selected.RenderRange();
         this.RenderUI();
     }
     Reset()
@@ -921,18 +984,11 @@ let current_level = new GameManager(sprites.grass, new Path(sprites.track, new K
 [wave(.5, wasp_factory.Create[4], 2)]);
 // [wave(3), wave(.5, wasp_factory.Create[4], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
 
-let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 600, this.target, trans(this.bullet_position)); }
-let machine_gun_factory = new TurretFactory(60, (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); });
-current_level.turret_factory = machine_gun_factory;
-
-current_level.AddEntity(new BasicTurret(sprites.explosion[0], sprites.anti_air[0], 2, 600, 30, trans(vec(200, 200))));
-
 function Start()
 {
     sprites.grass.transform.scale = 1.2;
     sprites.grass.top_position = vec(0, 0);
     sprites.track.top_position = vec(0, 0);
-    sprites.machine_gun.forEach(s => { s.img.width *= .5; s.img.height *= .5; });
 }
 
 function Update()
