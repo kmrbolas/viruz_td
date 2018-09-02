@@ -158,10 +158,12 @@ let Input =
     mouseClick: false,
     mousePos: vec(0, 0),
     log(s) { console.log(s); },
+    keyDown: new Array(512),
 }
 let Player =
 {
     level: 0,
+    gold: 120,
 }
 function Button(pos, size, text, fillStyle = "#FFF", strokeStyle = "#000", lineWidth = 0)
 {
@@ -600,16 +602,17 @@ class EnemyFactory
 }
 let spider_factory = new EnemyFactory(animations.spider, .4, 100, 100);
 let beetle_factory = new EnemyFactory(animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory(animations.wasp, .3, 100, 125, 1);
+let wasp_factory = new EnemyFactory(animations.wasp, .2, 100, 125, 1);
 class Projectile extends Entity
 {
-    constructor(aoe, speed, target, transform = new Transform())
+    constructor(aoe, speed, main_target, transform = new Transform())
     {
         super(transform);
         this.aoe = aoe;
         this.speed = speed;
-        this.main_target = target;
+        this.main_target = main_target;
     }
+    get copy() { return new Projectile(this.aoe, this.speed, this.main_target, this.transform); }
     Update()
     {
         this.transform.FaceTo(this.main_target.transform.position);
@@ -730,17 +733,7 @@ class Turret extends Entity
     }
     RenderRange(color = "#000")
     {
-        let d = this.fov / 2;
-        let a1 = this.rotation - d;
-        let a2 = this.rotation + d;
-        let dir1 = Vector2.angleVector(a1).mult(this.range).add(this.transform.position);
-        let dir2 = Vector2.angleVector(a2).mult(this.range).add(this.transform.position);
-        RenderLines(color, 1, dir1, this.transform.position, dir2);
-        let c = new Circle2D(this.transform.position, this.range);
-        context.save();
-        context.globalAlpha = .5;
-        c.Render("#FFF", color);
-        context.restore();
+        Turret.RenderRange(this.transform, this.range, this.fov);
     }
     static RenderRange(transform, range, fov = 0, color = "#000")
     {
@@ -754,6 +747,13 @@ class Turret extends Entity
         context.globalAlpha = .5;
         c.Render("#FFF", color);
         context.restore();
+    }
+}
+class UpgradeTurret extends Turret
+{
+    constructor(fire_rate, range, fov, transform = new Transform())
+    {
+        super(fire_rate, range, fov, transform);
     }
 }
 class MachineGun extends Turret
@@ -857,8 +857,10 @@ let create_mg = (position) => { return new MachineGun(sprites.machine_gun, creat
 // let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
 let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
 machine_gun_factory.create = create_mg;
+machine_gun_factory.name = "Machine Gun";
 machine_gun_factory.enabled_sprite = sprites.machine_gun[3];
 machine_gun_factory.disabled_sprite = sprites.machine_gun[4];
+let turrets_factory = [machine_gun_factory, machine_gun_factory, machine_gun_factory, machine_gun_factory];
 class WavePath extends Entity
 {
     constructor(path, waves)
@@ -916,7 +918,7 @@ class GameManager extends EntityManager
     get enemies() { return this.wave_spawner.enemies; }
     IsValidPosition(position, d = 50)
     {
-        return InsideRect(position, vec(15, 15), vec(800 - 2 * 15, 600 - 2 * 15)) && this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
+        return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
     }
     Update()
     {
@@ -925,11 +927,23 @@ class GameManager extends EntityManager
         {
             if (this.selected instanceof TurretFactory)
             {
-                if (this.IsValidPosition(Input.mousePos))
-                    this.AddEntity(this.selected.create(Input.mousePos));
-                else
+                if (!this.IsValidPosition(Input.mousePos))
+                {
                     Input.log("Invalid Position!");
-                this.selected = null;
+
+                }
+                else if (Player.gold - this.selected.cost < 0)
+                {
+                    Input.log("Insufficient Gold!");
+                    this.selected = null;
+                }
+                else
+                {
+                    this.AddEntity(this.selected.create(Input.mousePos));
+                    Player.gold -= this.selected.cost;
+                    if (!Input.keyDown[16]) this.selected = null;
+                }
+                
             }
             else if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
             {
@@ -942,31 +956,30 @@ class GameManager extends EntityManager
     {
         this.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
         RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
-        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(480, 720));
-        RenderRectangle("#777", "#000", 2, vec(800, 0), vec(480, 200));
-        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1280, 120));
+        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
+        RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
+        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1000, 120));
         if (this.selected instanceof Entity)
         {
             this.selected.transform.push();
-            this.selected.transform.position = vec(1040, 100);
+            this.selected.transform.position = vec(900, 100);
             this.selected.Render();
             this.selected.transform.pop();
         }
         else if (this.selected instanceof TurretFactory)
         {
             let sprite = this.IsValidPosition(Input.mousePos) ? this.selected.enabled_sprite : this.selected.disabled_sprite;            
-            sprite.transform.scale = .5;
-            sprite.transform.position = vec(1040, 100);
+            sprite.transform.position = vec(900, 100);
             sprite.Render();
-            if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
-            {
-                sprite.transform.position = Input.mousePos;
-                sprite.Render();
-            }
         }
-        if (Button(vec(0 + 5, 600 + 5), vec(100, 50), "MachineGun - " + machine_gun_factory.cost + "g"))
+        for (let i = 0; i < turrets_factory.length; i++)
         {
-            this.selected = machine_gun_factory;
+            const factory = turrets_factory[i];
+            let pos = vec(155 * (Math.floor(i / 2)) + 5, 550 + 55 * (2 - (i % 2)) + 5);
+            if (Button(pos, vec(150, 50), factory.name + " - " + factory.cost + "g " + i))
+            {
+                this.selected = factory;
+            }
         }
         
     }
@@ -974,7 +987,17 @@ class GameManager extends EntityManager
     {
         this.background_sprite.Render();
         super.Render();
-        // if (this.selected instanceof Turret) this.selected.RenderRange();
+        if (this.selected instanceof TurretFactory)
+        {
+            let sprite = this.IsValidPosition(Input.mousePos) ? this.selected.enabled_sprite : this.selected.disabled_sprite;            
+            sprite.transform.scale = .5;
+            sprite.transform.position = Input.mousePos;
+            sprite.Render();
+        }
+        else if (this.selected instanceof Turret)
+        {
+            // this.selected.RenderRange();
+        }
         this.RenderUI();
     }
     Reset()
@@ -1033,6 +1056,13 @@ canvas.addEventListener("mousemove", e =>
 {
     let rect = canvas.getBoundingClientRect();
     Input.mousePos = vec(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+document.addEventListener("keydown", e => {
+    Input.keyDown[e.which] = true;
+});
+document.addEventListener("keyup", e => {
+    Input.keyDown[e.which] = false;
 });
 
 window.onload = function()
