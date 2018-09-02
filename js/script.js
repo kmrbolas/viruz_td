@@ -301,6 +301,7 @@ let sprites =
     machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
     anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
     rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
+    base: new Sprite("images/turrets/base.png"),
     rocket: new Sprite("images/projectiles/rocket/0.png"),
     bullet: new Sprite("images/projectiles/bullet/0.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
@@ -717,6 +718,11 @@ class Turret extends Entity
             return;
         this.UpdateRotation();
     }
+    Render()
+    {
+        sprites.base.transform.position = this.transform.position;
+        sprites.base.Render();
+    }
     OnTimerTick()
     {
         if (this.targets.length > 0)
@@ -772,6 +778,7 @@ class MachineGun extends Turret
     }
     Render()
     {
+        super.Render();
         if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
         this.sprite.transform = this.transform;
         this.sprite.Render();
@@ -833,10 +840,13 @@ class BasicTurret extends Turret
 }
 class TurretFactory
 {
-    constructor(cost, create, enabled_sprite, disabled_sprite)
+    constructor(cost, base_damage, base_fire_rate, base_range, base_fov, enabled_sprite, disabled_sprite)
     {
         this.cost = cost;
-        this.create = create;
+        this.base_damage = base_damage;
+        this.base_fire_rate = base_fire_rate;
+        this.base_range = base_range;
+        this.base_fov = base_fov;
         this.enabled_sprite = enabled_sprite;
         this.disabled_sprite = disabled_sprite;
     }
@@ -844,7 +854,11 @@ class TurretFactory
 }
 let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 600, this.target, trans(this.bullet_position)); }
 let create_mg = (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); }
+// let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
 let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
+machine_gun_factory.create = create_mg;
+machine_gun_factory.enabled_sprite = sprites.machine_gun[3];
+machine_gun_factory.disabled_sprite = sprites.machine_gun[4];
 class WavePath extends Entity
 {
     constructor(path, waves)
