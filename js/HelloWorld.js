@@ -24,10 +24,16 @@ class Transformable
     }
 }
 
-let a = new Transformable(new Transform(vec(10, 10), 5));
-let b = new Transformable(new Transform(vec(100, 100), 50));
-
-b.transform = a.transform;
-b.transform.position = vec(100, 100);
-console.log(a.transform.position);
-console.log(b.transform.position);
+let t = new Transform();
+// t.status = { get(){return 5;} }
+Object.defineProperty(t, "status", {
+    get: function(){return 5;},
+    set: undefined,
+    enumerable: true,
+    // configurable: true
+})
+for(let p in t)
+{
+    console.log(p + " " + t[p]);
+}
+console.log(t.status);

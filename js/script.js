@@ -346,7 +346,7 @@ class Entity extends Transformable
     {
         super(transform);
         this.manager = null;
-        this.info = Array(0);
+        this.info = {  };
     }
     Update() {  }
     Render() {  }
@@ -534,7 +534,7 @@ class Enemy extends KillableEntity
         this.speed = speed;
         this.traveled_distance = 0;
         this.path_index = 0;
-        this.org = Math.random() * 30 - 15;
+        this.org = (Math.random() - .5) * 2 * (Math.random() * 30 + 10);
         this.path = null;
         this.info = ["velocidade: " + speed, "vida: " + max_life];
     }
@@ -712,17 +712,32 @@ class Rocket extends Projectile
         this.Release();
     }
 }
+class Upgrade
+{
+    constructor(base_value, max_level, scale = .25)
+    {
+        this.base_value = base_value;
+        this.scale = scale;
+        this.max_level = max_level;
+        this._level = 0;
+    }
+    get level() { return this._level; }
+    set level(value) { this._level = Math.clamp(value, 0, this.max_level); }
+    get value() { return this.base_value * (1 + this.scale * this.level); }
+    get is_maxed() { return this._level == this.max_level; }
+}
 class Turret extends Entity
 {
-    constructor(fire_rate, range, fov, transform = new Transform())
+    constructor(fire_rate, base_range, transform = new Transform())
     {
         super(transform);
         this.timer = new Timer(1 / fire_rate, this.OnTimerTick.bind(this));
-        this.range = range;
-        this.fov = fov * Math.PI / 180;
-        this.manager = null;
+        this.fov = Math.PI / 6;
         this.targets = Array(0);
         this.targets_in_range = Array(0);
+        this.upgrades = { range: new Upgrade(base_range, 4) };
+        this.info.name = "Turret";
+
     }
     get fire_rate() { return this.timer.frequency; }
     set fire_rate(value) { this.timer.frequency = value; }
@@ -733,7 +748,7 @@ class Turret extends Entity
     }
     UpdateTargets()
     {
-        this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.range, (e) => { return e instanceof Enemy; });
+        this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.upgrades.range.value, (e) => { return e instanceof Enemy; });
         this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     UpdateTargetsInRange()
@@ -765,7 +780,7 @@ class Turret extends Entity
     }
     RenderRange(color = "#999")
     {
-        Turret.RenderRange(this.transform, this.range, this.fov, color);
+        Turret.RenderRange(this.transform, this.range.value, this.fov, color);
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
     {
@@ -783,14 +798,17 @@ class Turret extends Entity
 }
 class MachineGun extends Turret
 {
-    constructor(sprites, create_bullet, fire_rate, range, fov, transform)
+    constructor(transform = new Transform())
     {
-        super(fire_rate, range, fov, transform);
-        this.sprites = sprites;
-        this.create_bullet = create_bullet;
+        super(5, 100, transform);
         this.left = false;
         this.transform.scale = .5
+        this.upgrades.damage = new Upgrade(20, 4);
+        this.upgrades.chains = new Upgrade(0, 4);
+        this.bullet_aoe = 50;
+        this.bullet_speed = 700;
     }
+    get copy() { return new MachineGun(); }
     get bullet_position()
     {
         return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale));
@@ -799,7 +817,7 @@ class MachineGun extends Turret
     {
         this.left = !this.left;
         this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
-        this.manager.AddEntity(this.create_bullet());
+        this.manager.AddEntity(new Bullet(sprites.bullet, this.upgrades.damage.value, this.upgrades.chains.level, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
     }
     Render()
     {
@@ -810,39 +828,6 @@ class MachineGun extends Turret
     }
 
 }
-class RocketLauncher extends Turret
-{
-    constructor(create_bullet, aoe, fire_rate, range, fov, position)
-    {
-        super(fire_rate, range, fov, position)
-        this.create_bullet = create_bullet;
-        this.aoe = aoe;
-        this.sprite = sprites.rocket_launcher[0];
-        this.left = false;
-        this.transform.scale = .5;
-    }
-    get bullet_position() { return this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(this.transform.scale * 50)); }
-    Shoot()
-    {
-        this.manager.AddEntity(this.create_bullet());
-    }
-    UpdateTargets()
-    {
-        super.UpdateTargets();
-        this.targets = this.targets.sort((a, b) => {
-            let a1 = this.manager.OverlapCircle(a.transform.position, this.range, e => { return e instanceof Enemy; });
-            let b1 = this.manager.OverlapCircle(b.transform.position, this.range, e => { return e instanceof Enemy; });
-            return b1.length - a1.length;
-        });
-    }
-    Render()
-    {
-        this.sprite.transform = this.transform;
-        if (this.targets.length > 0)
-            this.sprite.position = this.position.add(Vector2.angleVector(this.rotation).mult(((this.delay - this.to_tick) / this.delay) * 10 ));
-        this.sprite.Render(this.position, this.rotation, this.scale);
-    }
-}
 class BasicTurret extends Turret
 {
     constructor(base_sprite, cannon_sprite, fire_rate, range, fov, transform = new Transform())
@@ -851,7 +836,7 @@ class BasicTurret extends Turret
         this.base_sprite = base_sprite;
         this.cannon_sprite = cannon_sprite;
     }
-    get copy() { return new BasicTurret(this.base_sprite, this.cannon_sprite, this.fire_rate, this.range, this.fov, this.transform); }
+    get copy() { return new BasicTurret(this.base_sprite, this.cannon_sprite, this.fire_rate, this.base_range, this.fov, this.transform); }
     Render()
     {
         this.base_sprite.transform = this.transform;
@@ -866,38 +851,27 @@ class BasicTurret extends Turret
 }
 class TurretFactory
 {
-    constructor(cost, base_damage, base_fire_rate, base_range, base_fov, enabled_sprite, disabled_sprite)
+    constructor(cost, turret)
     {
         this.cost = cost;
-        this.base_damage = base_damage;
-        this.base_fire_rate = base_fire_rate;
-        this.base_range = base_range;
-        this.base_fov = base_fov;
-        this.enabled_sprite = enabled_sprite;
-        this.disabled_sprite = disabled_sprite;
+        this.turret = turret;
+        this.name = turret.info.name;
     }
-
+    create(position)
+    {
+        let t = this.turret.copy;
+        t.transform.position = position;
+        return t;
+    }
 }
-class TurretFactory2
+let turrets =
 {
-    constructor(cost, base_turret, enabled_sprite, disabled_sprite)
-    {
-        this.cost = cost;
-        this.base_turret = base_turret;
-        this.enabled_sprite = enabled_sprite;
-        this.disabled_sprite = disabled_sprite;
-    }
-
-}
-let create_bullet = function() { return new Bullet(sprites.bullet, 50, 2, 50, 600, this.target, trans(this.bullet_position)); }
-let create_mg = (position) => { return new MachineGun(sprites.machine_gun, create_bullet, 4, 200, 30, trans(position)); }
-// let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
-let machine_gun_factory = new TurretFactory(60, create_mg, sprites.machine_gun[3], sprites.machine_gun[4]);
-machine_gun_factory.create = create_mg;
-machine_gun_factory.name = "Machine Gun";
-machine_gun_factory.enabled_sprite = sprites.machine_gun[3];
-machine_gun_factory.disabled_sprite = sprites.machine_gun[4];
-let turrets_factory = [machine_gun_factory, machine_gun_factory, machine_gun_factory];
+    machine_gun: new MachineGun(),
+};
+let turrets_factory =
+{
+    machine_gun: new TurretFactory(60, turrets.machine_gun),
+};
 class WavePath extends Entity
 {
     constructor(path, waves)
@@ -964,7 +938,9 @@ class GameManager extends EntityManager
         {
             if (this.selected instanceof TurretFactory)
             {
-                if (!this.IsValidPosition(Input.mousePos))
+                if (Input.keyDown[27])
+                    this.selected = null;
+                else if (!this.IsValidPosition(Input.mousePos))
                     Input.log("Posição Inválida!");
                 else if (Player.gold - this.selected.cost < 0)
                     Input.log("Ouro Insuficiente!");
@@ -1015,15 +991,13 @@ class GameManager extends EntityManager
     {
         this.background_sprite.Render();
         super.Render();
-        if (this.selected instanceof TurretFactory)
+        if (this.selected instanceof Turret)
         {
-            let sprite = this.IsValidPosition(Input.mousePos) ? this.selected.enabled_sprite : this.selected.disabled_sprite;            
-            sprite.transform.scale = .5;
-            sprite.transform.position = Input.mousePos;
-            sprite.Render();
-        }
-        else if (this.selected instanceof Turret)
-        {
+            if (this.selected.manager == this)
+            {
+
+            }
+            
             this.selected.RenderRange();
         }
         this.RenderUI();
@@ -1032,17 +1006,6 @@ class GameManager extends EntityManager
     {
         this.wave_spawner.Reset();
     }
-}
-class Upgrade
-{
-    constructor(max_level)
-    {
-        this.max_level = max_level;
-        this._level = 0;
-    }
-    get level() { return this._level; }
-    set level(value) { this._level = Math.clamp(value, 0, this.max_level); }
-    get maxed() { return this._level == this.max_level; }
 }
 
 let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
