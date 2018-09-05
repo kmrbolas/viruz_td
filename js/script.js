@@ -198,6 +198,7 @@ let Time =
     deltaTime: 0,
     unscaledDeltaTime: 0,
     timeScale: 1,
+    elapsed: 0,
 }
 let Player =
 {
@@ -336,9 +337,9 @@ let sprites =
         Sprite.CreateSheet("images/enemies/wasp_a_", 5, ".png"),
         Sprite.CreateArray("images/enemies/wasp_d_0.png", "images/enemies/wasp_c_1.png", "images/enemies/wasp_b_2.png", "images/enemies/wasp_a_3.png", "images/enemies/wasp_a_4.png")
     ],
-    machine_gun: Sprite.CreateArray("images/turrets/Machine_Gun/machine_gun_0.png", "images/turrets/Machine_Gun/machine_gun_1.png", "images/turrets/Machine_Gun/machine_gun_2.png", "images/turrets/Machine_Gun/machine_gun_enabled.png", "images/turrets/Machine_Gun/machine_gun_disabled.png"),
-    anti_air: Sprite.CreateArray("images/turrets/antiair/0.png", "images/turrets/antiair/0.png"),
-    rocket_launcher: Sprite.CreateArray("images/turrets/rocketlauncher/0.png"),
+    machine_gun: Sprite.CreateArray("images/turrets/machine_gun_0.png", "images/turrets/machine_gun_1.png", "images/turrets/machine_gun_2.png", "images/turrets/machine_gun_enabled.png", "images/turrets/machine_gun_disabled.png"),
+    anti_air: Sprite.CreateArray("images/turrets/antiair.png", "images/turrets/antiair_enabled.png", "images/turrets/antiair_disabled.png"),
+    rocket_launcher: Sprite.CreateArray("images/turrets/rocket_launcher.png", "images/turrets/rocket_launcher_disabled.png", "images/turrets/rocket_launcher_disabled.png"),
     base: Sprite.CreateArray("images/turrets/base.png", "images/turrets/base_enabled.png", "images/turrets/base_disabled.png"),
     rocket: new Sprite("images/projectiles/rocket/0.png"),
     bullet: new Sprite("images/projectiles/bullet/0.png"),
@@ -425,7 +426,9 @@ class Animation extends Entity
     OnTimerTick()
     {
         this.sprite_index = (this.sprite_index + 1) % this.sprites.length;
-        if (this.sprite_index == 0 && this.times_played++ >= this.times_to_play)
+        if (this.times_to_play == 0)
+            return;
+        if (this.sprite_index == 0 && ++this.times_played >= this.times_to_play)
             this.Release();
     }
     Render()
@@ -551,7 +554,7 @@ class Enemy extends KillableEntity
         this.speed = speed;
         this.traveled_distance = 0;
         this.path_index = 0;
-        this.org = (Math.random() - .5) * 2 * (Math.random() * 30 + 10);
+        this.org = (Math.random() - .5) * 2 * (Math.random() * 20 + 10);
         this.path = null;
         this.info["Velocidade"] = this.speed;
         AddPropertyGet(this.info, "Distância Percorrida", ()=>{return Math.floor(this.traveled_distance);});
@@ -598,6 +601,7 @@ class AnimEnemy extends Enemy
     {
         super(speed, max_life, transform);
         this.anim = anim.copy;
+        this.anim.times_to_play = 0;
     }
     Update()
     {
@@ -726,9 +730,9 @@ class Rocket extends Projectile
         targets.forEach(t => { t.life -= this.damage; });
         let ex = this.explosion.copy;
         ex.opacity = .8;
-        ex.transform = this.transform;
-        ex.transform.scale = this.aoe / 60;
-        this.game_manager.PlayAnimation(ex);
+        ex.transform = targets[0].transform;
+        ex.transform.scale = this.aoe / 30;
+        this.manager.AddEntity(ex);
         this.Release();
     }
 }
@@ -790,7 +794,8 @@ class Turret extends Entity
     }
     Render()
     {
-        sprites.base[0].transform.position = this.transform.position;
+        sprites.base[0].transform = this.transform;
+        sprites.base[0].transform.rotation = 0;
         sprites.base[0].Render();
     }
     OnTimerTick()
@@ -805,7 +810,8 @@ class Turret extends Entity
     RenderState(b)
     {
         let sprite = sprites.base[b ? 1 : 2];
-        sprite.transform.position = this.transform.position;
+        sprite.transform = this.transform;
+        sprite.transform.rotation = 0;
         sprite.Render();
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
@@ -866,24 +872,40 @@ class MachineGun extends Turret
 }
 class BasicTurret extends Turret
 {
-    constructor(base_sprite, cannon_sprite, fire_rate, range, fov, transform = new Transform())
+    constructor(cannon_sprite, fire_rate, base_range, transform = new Transform())
     {
-        super(fire_rate, range, fov, transform);
-        this.base_sprite = base_sprite;
+        super(fire_rate, base_range, transform);
         this.cannon_sprite = cannon_sprite;
     }
-    get copy() { return new BasicTurret(this.base_sprite, this.cannon_sprite, this.fire_rate, this.base_range, this.fov, this.transform); }
     Render()
     {
-        this.base_sprite.transform = this.transform;
-        this.base_sprite.transform.rotation = 0;
+        super.Render();
         this.cannon_sprite.transform = this.transform;
         if (this.targets.length > 0)
-            this.cannon_sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 ));
-        this.base_sprite.Render();
+            this.cannon_sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 * this.transform.scale));
         this.cannon_sprite.Render();
     }
+    RenderState(b)
+    {
+        super.RenderState(b);
+    }
 
+}
+class RocketLauncher extends BasicTurret
+{
+    constructor(transform = new Transform())
+    {
+        super(sprites.rocket_launcher[0], 2, 100, transform);
+        this.upgrades.damage = new Upgrade(20, 4);
+        this.upgrades.aoe = new Upgrade(40, 4);
+        this.info["Nome"] = "RocketLauncher";
+        this.transform.scale = .5;
+    }
+    get copy() { return new RocketLauncher(this.transform); }
+    Shoot()
+    {
+        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.upgrades.damage.value, this.upgrades.aoe.value, 500, this.target, this.transform));
+    }
 }
 class TurretFactory
 {
@@ -902,10 +924,12 @@ class TurretFactory
 let turrets =
 {
     machine_gun: new MachineGun(),
+    rocket_launcher: new RocketLauncher(),
 };
 let turrets_factory =
 {
     machine_gun: new TurretFactory(60, turrets.machine_gun),
+    rocket_launcher: new TurretFactory(80, turrets.rocket_launcher),
 };
 class WavePath extends Entity
 {
@@ -988,7 +1012,7 @@ class GameManager extends EntityManager
             }
             else if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
             {
-                let s = this.OverlapCircle(Input.mousePos, 20, e => { return e instanceof Turret || e instanceof Enemy; });
+                let s = this.OverlapCircle(Input.mousePos, 30, e => { return e instanceof Turret || e instanceof Enemy; });
                 this.selected = s.length > 0 ? s[0] : null;
             }
         }
@@ -1013,7 +1037,7 @@ class GameManager extends EntityManager
         {
             const factory = turrets_factory[p];
             let pos = vec(155 * (Math.floor(i / 2)) + 5, 720 + 55 * -(2 - (i % 2)) - 3);
-            if (Button(pos, vec(150, 50), factory.turret.info["Nome"] + " - " + factory.cost + "p"))
+            if (Button(pos, vec(150, 50), factory.turret.info["Nome"] + " - " + factory.cost + "g"))
                 this.selected = factory;
             i++;
         }
@@ -1021,6 +1045,7 @@ class GameManager extends EntityManager
     }
     Render()
     {
+        // this.entities = this.entities.sort((a, b) => { return GameManager.RenderOrder(b) - GameManager.RenderOrder(a); });
         this.background_sprite.Render();
         super.Render();
         if (this.selected instanceof TurretFactory)
@@ -1039,6 +1064,16 @@ class GameManager extends EntityManager
     Reset()
     {
         this.wave_spawner.Reset();
+    }
+    static RenderOrder(entity)
+    {
+        if (entity instanceof Animation)
+            return 3;
+        else if (entity instanceof Turret)
+            return 2;
+        else if (entity instanceof Projectile)
+            return 1;
+        return 0;
     }
 }
 
