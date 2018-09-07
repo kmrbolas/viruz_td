@@ -750,7 +750,7 @@ class Rocket extends Projectile
 }
 class Upgrade
 {
-    constructor(base_value, max_level, scale = .25)
+    constructor(base_value, max_level, scale = .10)
     {
         this.base_value = base_value;
         this.scale = scale;
@@ -827,6 +827,30 @@ class Turret extends Entity
         sprite.transform.rotation = 0;
         sprite.Render();
     }
+    RenderTowerUpgrades(top_position)
+    {
+        let i = 0;
+        for (let p in this.upgrades)
+        {
+            let upgrade = this.upgrades[p];
+            let size = vec(200, 25);
+            let pos = top_position.add(vec(0, (size.y + 5) * i + 5));
+            let upgrade_cost = (upgrade.level + 1) * 15;
+            if (upgrade.is_maxed)
+            {
+                Button(pos, size, p + ", Nivel: " + upgrade.level);
+            }
+            else
+            {
+                if (Button(pos, size, p + ", Nivel: " + upgrade.level + ", Custo: " + upgrade_cost) && Player.gold >= upgrade_cost)
+                {
+                    upgrade.level++;
+                    Player.gold -= upgrade_cost;
+                }
+            }
+            i++;
+        }
+    }
     static RenderRange(transform, range, fov = 0, color = "#999")
     {
         let d = fov / 2;
@@ -850,12 +874,12 @@ class MachineGun extends Turret
         this.transform.scale = .5
         this.upgrades.damage = new Upgrade(30, 4);
         this.upgrades.chains = new Upgrade(0, 4);
-        this.bullet_aoe = 50;
+        this.bullet_aoe = 70;
         this.bullet_speed = 700;
         this.info["Nome"] = "Metralhadora";
         this.info["Alvos"] = "Aéreos e Terrestres";
         AddPropertyGet(this.info, "Dano", ()=>{return this.upgrades.damage.value;});
-        AddPropertyGet(this.info, "Ricochetes", ()=>{return this.upgrades.chains.value;});
+        AddPropertyGet(this.info, "Ricochetes", ()=>{return this.upgrades.chains.level;});
     }
     get copy() { return new MachineGun(this.transform); }
     get bullet_position()
@@ -1086,6 +1110,10 @@ class GameManager extends EntityManager
             this.selected.Render();
             this.selected.transform.pop();
             this.selected.RenderInfo(vec(800, 200), vec(200, 110));
+        }
+        if (this.selected instanceof Turret)
+        {
+            this.selected.RenderTowerUpgrades(vec(800, 310));
         }
         let i = 0;
         for (let p in turrets_factory)
