@@ -354,6 +354,7 @@ class Entity extends Transformable
     {
         super(transform);
         this.manager = null;
+        this.render_layer = 0;
         this.info = {  };
         this.info["Nome"] = "Entity";
     }
@@ -381,6 +382,7 @@ class EntityManager
     }
     Render()
     {
+        this.entities = this.entities.sort((a, b) => { return a.render_layer - b.render_layer; });
         this.entities.forEach(e => { e.Render(); });
     }
     AddEntity(entity)
@@ -551,6 +553,7 @@ class Enemy extends KillableEntity
     constructor(speed, max_life, transform = new Transform())
     {
         super(max_life, transform);
+        this.render_layer = 1;
         this.speed = speed;
         this.traveled_distance = 0;
         this.path_index = 0;
@@ -764,6 +767,7 @@ class Turret extends Entity
     constructor(fire_rate, base_range, transform = new Transform())
     {
         super(transform);
+        this.render_layer = 5;
         this.timer = new Timer(1 / fire_rate, this.OnTimerTick.bind(this));
         this.fov = Math.PI / 6;
         this.targets = Array(0);
