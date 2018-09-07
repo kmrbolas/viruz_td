@@ -636,7 +636,6 @@ class EnemyFactory
         e.transform.scale = this.base_scale + .05 * rank;
         e.factory = this;
         e.type = this.type;
-        e.rank = rank;
         e.path = path;
         e.info.Rank = rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S";
         e.info.Nome = this.name;
@@ -647,11 +646,14 @@ class EnemyFactory
             ex.transform = this.transform;
             ex.transform.scale *= 1.5;
             this.manager.AddEntity(ex);
-            if (this.rank > 1)
+            if (rank > 1)
             {
-                e.SpawnAdjacent(this.factory.Create[this.rank - 1](this.path));
-                e.SpawnAdjacent(this.factory.Create[this.rank - 1](this.path));
+                e.SpawnAdjacent(this.factory.Create[rank - 1](this.path));
+                e.SpawnAdjacent(this.factory.Create[rank - 1](this.path));
             }
+            let gold = 3 * (rank + 1);
+            Player.gold += gold;
+            Input.log("+" + gold + " gold");
             this.Release();
         };
         return e;
@@ -659,7 +661,7 @@ class EnemyFactory
 }
 let spider_factory = new EnemyFactory("Mecha-Aranha", animations.spider, .4, 100, 100, "Terrestre");
 let beetle_factory = new EnemyFactory("Mecha-Besouro", animations.beetle, .3, 80, 150, "Terrestre");
-let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 100, 125, "Voador");
+let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 100, 125, "Aéreo");
 class Projectile extends Entity
 {
     constructor(aoe, speed, main_target, transform = new Transform())
@@ -675,7 +677,13 @@ class Projectile extends Entity
         this.transform.FaceTo(this.main_target.transform.position);
         this.transform.MoveTo(this.main_target.transform.position, this.speed * Time.deltaTime);
         if (Vector2.distance(this.transform.position, this.main_target.transform.position) <= this.speed * Time.deltaTime)
-            this.OnHit(this.manager.OverlapCircle(this.main_target.transform.position, this.aoe, e => { return e instanceof Enemy; }));
+        {
+            let targets = this.manager.OverlapCircle(this.main_target.transform.position, this.aoe, e => { return e instanceof Enemy; });
+            if (targets.length > 0)
+                this.OnHit(targets);
+            else
+                this.Release();
+        }
     }
     Render()
     {
@@ -732,7 +740,7 @@ class Rocket extends Projectile
         let ex = this.explosion.copy;
         ex.opacity = .8;
         ex.transform = targets[0].transform;
-        ex.transform.scale = this.aoe / 30;
+        ex.transform.scale = this.aoe / 60;
         this.manager.AddEntity(ex);
         this.Release();
     }
@@ -771,12 +779,12 @@ class Turret extends Entity
     {
 
     }
-    UpdateTargets()
+    UpdateTargetsInRange()
     {
         this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.upgrades.range.value, (e) => { return e instanceof Enemy; });
         this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
-    UpdateTargetsInRange()
+    UpdateTargets()
     {
         this.targets = this.targets_in_range.filter(t => { return Vector2.sub(t.transform.position, this.transform.position).normalized.distance(Vector2.angleVector(this.transform.rotation)) <= this.fov / 2; });
     }
@@ -786,8 +794,8 @@ class Turret extends Entity
     }
     Update()
     {
-        this.UpdateTargets();
         this.UpdateTargetsInRange();
+        this.UpdateTargets();
         this.timer.Update();
         if (this.targets_in_range.length == 0)
             return;
@@ -833,14 +841,15 @@ class MachineGun extends Turret
 {
     constructor(transform = new Transform())
     {
-        super(5, 125, transform);
+        super(5, 150, transform);
         this.left = false;
         this.transform.scale = .5
-        this.upgrades.damage = new Upgrade(40, 4);
+        this.upgrades.damage = new Upgrade(30, 4);
         this.upgrades.chains = new Upgrade(0, 4);
         this.bullet_aoe = 50;
         this.bullet_speed = 700;
         this.info["Nome"] = "Metralhadora";
+        this.info["Alvos"] = "Aéreos e Terrestres";
         AddPropertyGet(this.info, "Dano", ()=>{return this.upgrades.damage.value;});
         AddPropertyGet(this.info, "Ricochetes", ()=>{return this.upgrades.chains.value;});
     }
@@ -900,16 +909,44 @@ class RocketLauncher extends BasicTurret
 {
     constructor(transform = new Transform())
     {
-        super(sprites.rocket_launcher, 2, 100, transform);
-        this.upgrades.damage = new Upgrade(20, 4);
-        this.upgrades.aoe = new Upgrade(40, 4);
+        super(sprites.rocket_launcher, 2.5, 120, transform);
+        this.upgrades.damage = new Upgrade(40, 4);
+        this.upgrades.aoe = new Upgrade(60, 4);
         this.info["Nome"] = "Lança Missel";
+        this.info["Alvos"] = "Terrestres";
         this.transform.scale = .5;
     }
     get copy() { return new RocketLauncher(this.transform); }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.filter(t => { return t.type == "Terrestre"; });
+    }
     Shoot()
     {
         this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.upgrades.damage.value, this.upgrades.aoe.value, 500, this.target, this.transform));
+    }
+}
+class AntiAir extends BasicTurret
+{
+    constructor(transform = new Transform())
+    {
+        super(sprites.anti_air, 3.5, 200, transform);
+        this.upgrades.damage = new Upgrade(40, 4);
+        this.upgrades.aoe = new Upgrade(70, 4);
+        this.info["Nome"] = "Anti-Aéreo";
+        this.info["Alvos"] = "Aéreos";
+        this.transform.scale = .5;
+    }
+    get copy() { return new AntiAir(this.transform); }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.filter(t => { return t.type == "Aéreo"; });
+    }
+    Shoot()
+    {
+        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.upgrades.damage.value, this.upgrades.aoe.value, 700, this.target, this.transform));
     }
 }
 class TurretFactory
@@ -930,11 +967,13 @@ let turrets =
 {
     machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
+    anti_air: new AntiAir(),
 };
 let turrets_factory =
 {
     machine_gun: new TurretFactory(60, turrets.machine_gun),
     rocket_launcher: new TurretFactory(80, turrets.rocket_launcher),
+    anti_air: new TurretFactory(100, turrets.anti_air),
 };
 class WavePath extends Entity
 {
@@ -993,7 +1032,7 @@ class GameManager extends EntityManager
     get enemies() { return this.wave_spawner.enemies; }
     IsValidPosition(position, d = 50)
     {
-        return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
+        return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d * .7, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
     }
     Update()
     {
@@ -1029,6 +1068,13 @@ class GameManager extends EntityManager
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
         RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
         RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1000, 120));
+        Button(vec(700 - 5, 600 + 5), vec(100, 50), "Gold: " + Player.gold);
+        if (Button(vec(700 - 5, 650 + 10), vec(100, 50), "Velocidade: " + Time.timeScale))
+        {
+            Time.timeScale = (2 * Time.timeScale);
+            if (Time.timeScale > 4)
+                Time.timeScale = 1;
+        }
         if (this.selected instanceof Entity)
         {
             this.selected.transform.push();
@@ -1083,8 +1129,8 @@ class GameManager extends EntityManager
 }
 
 let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
-// [wave(.5, wasp_factory.Create[4], 2)]);
-[wave(3), wave(1, beetle_factory.Create[4]), wave(3), wave(.5, wasp_factory.Create[2], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
+// [wave(3), wave(1, beetle_factory.Create[4]), wave(3), wave(.5, wasp_factory.Create[2], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
+[wave(.5, spider_factory.Create[0], 20), wave(7), wave(.5, beetle_factory.Create[0], 20), wave(7), wave(.5, wasp_factory.Create[0], 20)]);
 
 function Start()
 {
