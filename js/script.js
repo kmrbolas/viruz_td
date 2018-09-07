@@ -339,7 +339,7 @@ let sprites =
     ],
     machine_gun: Sprite.CreateArray("images/turrets/machine_gun_0.png", "images/turrets/machine_gun_1.png", "images/turrets/machine_gun_2.png", "images/turrets/machine_gun_enabled.png", "images/turrets/machine_gun_disabled.png"),
     anti_air: Sprite.CreateArray("images/turrets/antiair.png", "images/turrets/antiair_enabled.png", "images/turrets/antiair_disabled.png"),
-    rocket_launcher: Sprite.CreateArray("images/turrets/rocket_launcher.png", "images/turrets/rocket_launcher_disabled.png", "images/turrets/rocket_launcher_disabled.png"),
+    rocket_launcher: Sprite.CreateArray("images/turrets/rocket_launcher.png", "images/turrets/rocket_launcher_enabled.png", "images/turrets/rocket_launcher_disabled.png"),
     base: Sprite.CreateArray("images/turrets/base.png", "images/turrets/base_enabled.png", "images/turrets/base_disabled.png"),
     rocket: new Sprite("images/projectiles/rocket/0.png"),
     bullet: new Sprite("images/projectiles/bullet/0.png"),
@@ -640,6 +640,7 @@ class EnemyFactory
         e.path = path;
         e.info.Rank = rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S";
         e.info.Nome = this.name;
+        e.info.Tipo = this.type;
         e.OnDeath = function()
         {
             let ex = animations.explosion.copy;
@@ -656,9 +657,9 @@ class EnemyFactory
         return e;
     }
 }
-let spider_factory = new EnemyFactory("Mecha-Aranha", animations.spider, .4, 100, 100);
-let beetle_factory = new EnemyFactory("Mecha-Besouro", animations.beetle, .3, 80, 150);
-let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 100, 125, 1);
+let spider_factory = new EnemyFactory("Mecha-Aranha", animations.spider, .4, 100, 100, "Terrestre");
+let beetle_factory = new EnemyFactory("Mecha-Besouro", animations.beetle, .3, 80, 150, "Terrestre");
+let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 100, 125, "Voador");
 class Projectile extends Entity
 {
     constructor(aoe, speed, main_target, transform = new Transform())
@@ -872,22 +873,26 @@ class MachineGun extends Turret
 }
 class BasicTurret extends Turret
 {
-    constructor(cannon_sprite, fire_rate, base_range, transform = new Transform())
+    constructor(cannon_sprites, fire_rate, base_range, transform = new Transform())
     {
         super(fire_rate, base_range, transform);
-        this.cannon_sprite = cannon_sprite;
+        this.cannon_sprites = cannon_sprites;
     }
     Render()
     {
         super.Render();
-        this.cannon_sprite.transform = this.transform;
+        let sprite = this.cannon_sprites[0];
+        sprite.transform = this.transform;
         if (this.targets.length > 0)
-            this.cannon_sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 * this.transform.scale));
-        this.cannon_sprite.Render();
+            sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 * this.transform.scale));
+        sprite.Render();
     }
     RenderState(b)
     {
         super.RenderState(b);
+        let sprite = this.cannon_sprites[b ? 1 : 2];
+        sprite.transform = this.transform;
+        sprite.Render();
     }
 
 }
@@ -895,10 +900,10 @@ class RocketLauncher extends BasicTurret
 {
     constructor(transform = new Transform())
     {
-        super(sprites.rocket_launcher[0], 2, 100, transform);
+        super(sprites.rocket_launcher, 2, 100, transform);
         this.upgrades.damage = new Upgrade(20, 4);
         this.upgrades.aoe = new Upgrade(40, 4);
-        this.info["Nome"] = "RocketLauncher";
+        this.info["Nome"] = "Lança Missel";
         this.transform.scale = .5;
     }
     get copy() { return new RocketLauncher(this.transform); }
@@ -993,7 +998,7 @@ class GameManager extends EntityManager
     Update()
     {
         super.Update();
-        if (Input.mouseClick)
+        if (Input.mouseClick && InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
         {
             if (this.selected instanceof TurretFactory)
             {
@@ -1030,7 +1035,7 @@ class GameManager extends EntityManager
             this.selected.transform.position = vec(900, 100);
             this.selected.Render();
             this.selected.transform.pop();
-            this.selected.RenderInfo(vec(800, 200), vec(200, 100));
+            this.selected.RenderInfo(vec(800, 200), vec(200, 110));
         }
         let i = 0;
         for (let p in turrets_factory)
