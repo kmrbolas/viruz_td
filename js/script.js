@@ -420,6 +420,7 @@ class Animation extends Entity
         this.times_to_play = times_to_play;
         this.opacity = opacity;
         this.timer = new Timer(1 / frame_rate, this.OnTimerTick.bind(this));
+        this.render_layer = 1;
     }
     get copy() { return new Animation(this.frame_rate, this.sprites, this.transform); }
     get frame_rate() { return this.timer.frequency; }
@@ -1147,37 +1148,23 @@ class GameManager extends EntityManager
     }
     Render()
     {
-        // this.entities = this.entities.sort((a, b) => { return GameManager.RenderOrder(b) - GameManager.RenderOrder(a); });
+        this.entities = this.entities.sort((a, b) => { return a.render_layer - b.render_layer; });
         this.background_sprite.Render();
         super.Render();
         if (this.selected instanceof Turret)
         {
-            if (this.selected.manager == this)
-            {
-                this.selected.RenderRange();
-            }
-            else
+            if (this.selected.manager != this)
             {
                 this.selected.transform.position = Input.mousePos;
                 this.selected.RenderState(this.IsValidPosition(Input.mousePos));
-                this.selected.RenderRange();
             }
+            this.selected.RenderRange();
         }
         this.RenderUI();
     }
     Reset()
     {
         this.wave_spawner.Reset();
-    }
-    static RenderOrder(entity)
-    {
-        if (entity instanceof Animation)
-            return 3;
-        else if (entity instanceof Turret)
-            return 2;
-        else if (entity instanceof Projectile)
-            return 1;
-        return 0;
     }
 }
 
