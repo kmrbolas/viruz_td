@@ -348,6 +348,7 @@ let sprites =
     explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
     track: new Sprite("images/background/Track01.png"),
     grass: new Sprite("images/background/grass.jpg"),
+    backgrounds: [new Sprite("images/background/Track01.png")],
 }
 class Entity extends Transformable
 {
@@ -407,6 +408,11 @@ class EntityManager
     OverlapCircle(position, radius, callback = e => { return true; })
     {
         return this.entities.filter(e => { return Vector2.distance(e.transform.position, position) <= radius && callback(e); });
+    }
+    Reset()
+    {
+        this.entities.forEach(e => { e.manager = null; });
+        this.entities = [];
     }
 }
 class Animation extends Entity
@@ -655,7 +661,7 @@ class EnemyFactory
         e.OnReachCore = function(core)
         {
             core.life -= this.life;
-            this.gold = 0;
+            this.gold = Math.floor(((this.max_life - this.life) / this.max_life) * this.gold);
             this.life = 0;
         };
         e.OnDeath = function()
@@ -1021,33 +1027,31 @@ let turrets =
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
 };
-class WavePath extends Entity
+class GameMap extends Entity
 {
-    constructor(path, waves)
+    constructor(background_sprite, path, waves)
     {
         super();
-        this.enemies = new Array(0);
+        this.background_sprite = background_sprite;
         this.path = path;
         this.waves = waves;
         this.wave_index = 0;
         this.enemy_index = 0;
-        this.timer = new Timer(waves[0].delay, this.OnTimerTick.bind(this));
-    }
-    OnTimerTick()
-    {
-        if (this.wave_index == this.waves.length)
-            return;
-        let wave = this.waves[this.wave_index];
-        if (wave.create_enemy == null || wave.count == this.enemy_index)
-        {
-            if (++this.wave_index == this.waves.length)
+        this.timer = new Timer(waves[0].delay, () => {
+            if (this.wave_index == this.waves.length)
                 return;
-            this.enemy_index = 0;
-            this.timer.delay = this.waves[this.wave_index].delay;
-            return;
-        }
-        this.manager.AddEntity(wave.create_enemy(this.path));
-        this.enemy_index++;
+            let wave = this.waves[this.wave_index];
+            if (wave.create_enemy == null || wave.count == this.enemy_index)
+            {
+                if (++this.wave_index == this.waves.length)
+                    return;
+                this.enemy_index = 0;
+                this.timer.delay = this.waves[this.wave_index].delay;
+                return;
+            }
+            this.manager.AddEntity(wave.create_enemy(this.path));
+            this.enemy_index++;
+        });
     }
     Update()
     {
@@ -1055,6 +1059,7 @@ class WavePath extends Entity
     }
     Render()
     {
+        this.background_sprite.Render();
         this.path.Render();
     }
     Reset()
@@ -1065,20 +1070,25 @@ class WavePath extends Entity
 }
 class GameManager extends EntityManager
 {
-    constructor(background_sprite, path, waves)
+    constructor()
     {
         super();
-        this.background_sprite = background_sprite;        
-        this.path = path;
-        this.waves = waves;
-        this.wave_spawner = new WavePath(path, waves);
-        this.AddEntity(this.wave_spawner);
         this.selected = null;
+        this._map = null;
+    }
+    get map() { return this._map; }
+    set map(value)
+    {
+        super.Reset();
+        this._map = value;
+        if (this._map == null) return;
+        this._map.Reset();
+        this.AddEntity(this._map);
     }
     get enemies() { return this.wave_spawner.enemies; }
     IsValidPosition(position, d = 50)
     {
-        return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d * .7, e => { return e instanceof Turret; }).length == 0 && !this.path.IsInside(position, d);
+        return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d * .7, e => { return e instanceof Turret; }).length == 0 && !this._map.path.IsInside(position, d);
     }
     Update()
     {
@@ -1119,7 +1129,7 @@ class GameManager extends EntityManager
         Button(vec(700 - 5, 600 + 5), vec(100, 50), "Gold: " + Player.gold);
         if (Button(vec(700 - 5, 650 + 10), vec(100, 50), "Velocidade: " + Time.timeScale))
         {
-            Time.timeScale = (2 * Time.timeScale);
+            Time.timeScale *= 2;
             if (Time.timeScale > 4)
                 Time.timeScale = 1;
         }
@@ -1148,8 +1158,6 @@ class GameManager extends EntityManager
     }
     Render()
     {
-        this.entities = this.entities.sort((a, b) => { return a.render_layer - b.render_layer; });
-        this.background_sprite.Render();
         super.Render();
         if (this.selected instanceof Turret)
         {
@@ -1164,29 +1172,43 @@ class GameManager extends EntityManager
     }
     Reset()
     {
-        this.wave_spawner.Reset();
+        this.map = this._map;
     }
 }
 
-let current_level = new GameManager(sprites.grass, new Path(sprites.track, new KillableEntity(10000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)), 
-// [wave(3), wave(1, beetle_factory.Create[4]), wave(3), wave(.5, wasp_factory.Create[2], 3), wave(3), wave(.5, spider_factory.Create[0], 10), wave(3), wave(.5, spider_factory.Create[0], 10)]);
-[wave(.5, spider_factory.Create[0], 20), wave(7), wave(.5, beetle_factory.Create[0], 20), wave(7), wave(.5, wasp_factory.Create[0], 20)]);
+let paths =
+[
+    new Path(sprites.backgrounds[0], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
+];
+
+let waves =
+[
+    [wave(.5, spider_factory.Create[0], 20), wave(7), wave(.5, beetle_factory.Create[0], 20), wave(7), wave(.5, wasp_factory.Create[0], 20)],
+];
+
+let maps =
+[
+    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
+];
+
+let manager = new GameManager();
 
 function Start()
 {
-    sprites.grass.transform.scale = 1.2;
     sprites.grass.top_position = vec(0, 0);
     sprites.track.top_position = vec(0, 0);
+    sprites.backgrounds.forEach(b => { b.top_position = vec(0, 0); });
+    manager.map = maps[0];
 }
 
 function Update()
 {
-    current_level.Update();
+    manager.Update();
 }
 
 function Render()
 {
-    current_level.Render();
+    manager.Render();
 }
 
 let lastRender = 0;
