@@ -206,13 +206,14 @@ let Player =
     level: 0,
     gold: 120,
 }
-function Button(pos, size, text, fillStyle = "#FFF", strokeStyle = "#000", lineWidth = 0)
+function Button(pos, size, text, fillStyle = "#BBB", strokeStyle = "#000", lineWidth = 0)
 {
-    RenderRectangle(fillStyle, strokeStyle, lineWidth, pos, size);
+    let check = InsideRect(Input.mousePos, pos, size);
+    RenderRectangle(check ? "#DDD" : fillStyle, strokeStyle, lineWidth, pos, size);
     context.font = "15px sans-serif";
     let center = pos.add(size.div(2));
     RenderText(center, text, size.x);
-    return Input.mouseClick && InsideRect(Input.mousePos, pos, size);
+    return Input.mouseClick && check;
 }
 class Transform
 {
@@ -349,6 +350,7 @@ let sprites =
     track: new Sprite("images/background/Track01.png"),
     grass: new Sprite("images/background/grass.jpg"),
     backgrounds: [new Sprite("images/background/Track01.png")],
+    menu_background: new Sprite("images/background/menu.png"),
 }
 class Entity extends Transformable
 {
@@ -376,10 +378,12 @@ class EntityManager
     {
         this.entities = new Array(0);
         this.AddEntities(...entities);
+        this.paused = false;
     }
     Update()
     {
-        this.entities.forEach(e => { e.Update(); });
+        if (!this.paused)
+            this.entities.forEach(e => { e.Update(); });
     }
     Render()
     {
@@ -925,7 +929,7 @@ class MachineGun extends Turret
         super(5, 150, transform);
         this.left = false;
         this.transform.scale = .5
-        this.upgrades.damage = new Upgrade(30, 4);
+        this.upgrades.damage = new Upgrade(35, 4);
         this.upgrades.chains = new Upgrade(0, 4);
         this.bullet_aoe = 70;
         this.bullet_speed = 700;
@@ -1053,6 +1057,8 @@ class GameMap extends Entity
             this.enemy_index++;
         });
     }
+    get current_wave() { return this.waves[Math.clamp(this.wave_index, 0, this.waves.length - 1)]; }
+    get next_wave_time() { return this.current_wave.create_enemy != null ? 0 : this.timer.delay - this.timer.elapsed; }
     Update()
     {
         this.timer.Update();
@@ -1102,7 +1108,7 @@ class GameManager extends EntityManager
                 else if (!this.IsValidPosition(Input.mousePos))
                     Input.log("Posição Inválida!");
                 else if (Player.gold - this.selected.cost < 0)
-                    Input.log("Ouro Insuficiente!");
+                    Input.log("Gold Insuficiente!");
                 else
                 {
                     let t = this.selected.copy;
@@ -1126,6 +1132,20 @@ class GameManager extends EntityManager
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
         RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
         RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1000, 120));
+
+        let next_wave_time = Math.ceil(this.map.next_wave_time);
+        if (next_wave_time)
+        {
+            if (Button(vec(480 - 5, 600 + 5), vec(210, 50), "Próxima onda em " + next_wave_time + " segundos"))
+            {
+                this.map.timer.elapsed = this.map.delay;
+                Player.gold += next_wave_time;
+            }
+        }
+        else
+            Button(vec(480 - 5, 600 + 5), vec(210, 50), "Onda em Andamento!");
+
+
         Button(vec(700 - 5, 600 + 5), vec(100, 50), "Gold: " + Player.gold);
         if (Button(vec(700 - 5, 650 + 10), vec(100, 50), "Velocidade: " + Time.timeScale))
         {
@@ -1183,7 +1203,7 @@ let paths =
 
 let waves =
 [
-    [wave(.5, spider_factory.Create[0], 20), wave(7), wave(.5, beetle_factory.Create[0], 20), wave(7), wave(.5, wasp_factory.Create[0], 20)],
+    [wave(10), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
 ];
 
 let maps =
@@ -1193,22 +1213,55 @@ let maps =
 
 let manager = new GameManager();
 
+let game_state = 0;
+
+let menu =
+{
+
+};
+
+function RenderStartMenu()
+{
+    sprites.menu_background.Render();
+    let size = vec(100, 50);
+    let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
+    if (Button(pos, size, "Jogar"))
+    {
+        manager.map = maps[0];
+        game_state = 2;
+    }
+}
+
 function Start()
 {
     sprites.grass.top_position = vec(0, 0);
     sprites.track.top_position = vec(0, 0);
     sprites.backgrounds.forEach(b => { b.top_position = vec(0, 0); });
+    sprites.menu_background.top_position = vec(0, 0);
     manager.map = maps[0];
 }
 
 function Update()
 {
-    manager.Update();
+    switch(game_state)
+    {
+        case 2:
+        manager.Update();
+        break;
+    }
 }
 
 function Render()
 {
-    manager.Render();
+    switch(game_state)
+    {
+        case 0:
+        RenderStartMenu();
+        break;
+        case 2:
+        manager.Render();
+        break;
+    }
 }
 
 let lastRender = 0;
