@@ -14,6 +14,10 @@ Array.prototype.find_last_of = function(callback)
             return this[i];
     return undefined;
 };
+Array.prototype.contains = function(n)
+{
+    return this.find(e => { return e === n; }) != undefined;
+}
 Math.clamp = (value, min, max) => { return Math.max(min, Math.min(value, max)); }
 Math.lerp = (v1, v2, t) => { return v1 + (v2 - v1) * Math.clamp(t, 0, 1); };
 function wave(delay, create_enemy = null, count = 1) { return { delay: delay, create_enemy: create_enemy, count: count }; }
@@ -383,7 +387,8 @@ class EntityManager
     Update()
     {
         if (!this.paused)
-            this.entities.forEach(e => { e.Update(); });
+            for (let i = 0; i < this.entities.length; i++)
+                this.entities[i].Update();
     }
     Render()
     {
@@ -392,7 +397,7 @@ class EntityManager
     }
     AddEntity(entity)
     {
-        if (this.entities.find(e => { return e === entity; }) != undefined)
+        if (this.entities.contains(entity))
             return;
         entity.manager = this;
         this.entities.push(entity);
@@ -1092,7 +1097,7 @@ class GameManager extends EntityManager
         this.AddEntity(this._map);
     }
     get enemies() { return this.wave_spawner.enemies; }
-    IsValidPosition(position, d = 50)
+    IsPositionValid(position, d = 50)
     {
         return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d * .7, e => { return e instanceof Turret; }).length == 0 && !this._map.path.IsInside(position, d);
     }
@@ -1105,7 +1110,7 @@ class GameManager extends EntityManager
             {
                 if (Input.keyDown[27])
                     this.selected = null;
-                else if (!this.IsValidPosition(Input.mousePos))
+                else if (!this.IsPositionValid(Input.mousePos))
                     Input.log("Posição Inválida!");
                 else if (Player.gold - this.selected.cost < 0)
                     Input.log("Gold Insuficiente!");
@@ -1184,7 +1189,7 @@ class GameManager extends EntityManager
             if (this.selected.manager != this)
             {
                 this.selected.transform.position = Input.mousePos;
-                this.selected.RenderState(this.IsValidPosition(Input.mousePos));
+                this.selected.RenderState(this.IsPositionValid(Input.mousePos));
             }
             this.selected.RenderRange();
         }
