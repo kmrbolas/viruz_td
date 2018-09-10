@@ -577,9 +577,7 @@ class Enemy extends KillableEntity
     }
     get info()
     {
-        let info = super.info;
-        info.push("Velocidade: " + this.speed, "Distância Percorrida: " + Math.floor(this.traveled_distance));
-        return info;
+        return super.info.concat("Velocidade: " + this.speed, "Distância Percorrida: " + Math.floor(this.traveled_distance));
     }
     Update()
     {
@@ -663,6 +661,7 @@ class EnemyFactory
         e.gold = 3 * (rank + 1);
         SetProperty(e, "info", function() {
             return [this.name + "-" + (rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S"),
+            "Vida: " + this.life + " de " + this.max_life,
             "Tipo: " + this.type,
             "Velocidade: " + this.speed,
             "Distância Percorrida: " + Math.floor(this.traveled_distance)];
