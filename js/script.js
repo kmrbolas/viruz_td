@@ -1127,7 +1127,6 @@ let maps =
 [
     new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
     new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
-    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
 ];
 
 let manager = new GameManager();
@@ -1242,6 +1241,12 @@ let gui =
             i++;
         }
         Input.RenderMessages(vec(800, 600));
+    },
+    Reset()
+    {
+        this.selected_entity = null;
+        this.selected_turret = null;
+        Time.timeScale = 1;
     }
 };
 
@@ -1264,8 +1269,10 @@ function RenderGameOver()
     if (Button(pos, size, "Tentar Novamente"))
     {
         manager.Reset();
+        gui.Reset();
         game_state = 2;
     }
+    
 }
 
 function RenderScore()
@@ -1274,9 +1281,23 @@ function RenderScore()
     let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
     if (Button(pos, size, "Continuar"))
     {
-        manager.map = maps[++map_index];
+        if (++map_index == maps.length)
+        {
+            game_state = 4;
+            return;
+        }
+        manager.map = maps[map_index];
+        gui.Reset();
         game_state = 2;
     }
+    gui.selected_entity = null;
+    gui.selected_turret = null;
+    Time.timeScale = 1;
+}
+
+function RenderCredits()
+{
+
 }
 
 function Start()
@@ -1285,20 +1306,20 @@ function Start()
     sprites.track.top_position = vec(0, 0);
     sprites.backgrounds.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
-    manager.map = maps[0];
+    manager.map = maps[0];    
 }
 
 function Update()
 {
-    if (manager.map.core.life == 0)
-        game_state = 1;
-    else if (manager.map.finished && !manager.entities.filter(e => { return e instanceof Enemy; }).length)
-        game_state = 3;
     switch(game_state)
     {
         case 2:
         manager.Update();
         gui.Update();
+        if (manager.map.core.life == 0)
+            game_state = 1;
+        else if (manager.map.finished && !manager.entities.filter(e => { return e instanceof Enemy; }).length)
+            game_state = 3;
         break;
     }
 }
@@ -1320,6 +1341,9 @@ function Render()
         break;
         case 3:
         RenderScore();
+        break;
+        case 4:
+        RenderCredits();
         break;
     }
 }
