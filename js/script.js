@@ -1140,21 +1140,17 @@ let menu =
         entity.transform.pop();
         RenderTextArray(vec(800, 200), vec(200, 110), entity.info);
     },
-    Render()
+    Update()
     {
         if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
         {
             if (this.selected_turret)
             {
-                this.selected_turret.transform.position = Input.mousePos;
-                let check = manager.IsPositionValid(Input.mousePos);
-                this.selected_turret.RenderState(check);
-                this.selected_turret.RenderRange();
                 if (Input.keyDown[27])
                     this.selected_turret = null;
                 else if (Input.mouseClick)
                 {
-                    if (!check)
+                    if (!manager.IsPositionValid(Input.mousePos))
                         Input.log("Posição Inválida");
                     else if (Player.gold - this.selected_turret.cost < 0)
                         Input.log("Gold Insuficiente");
@@ -1174,11 +1170,20 @@ let menu =
                 this.selected_entity = s.length > 0 ? s[0] : null;
             }
         }
-
+    },
+    Render()
+    {
+        //First Gui Layer
+        manager.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
+        if (this.selected_turret && InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
+        {
+            this.selected_turret.transform.position = Input.mousePos;
+            this.selected_turret.RenderState(manager.IsPositionValid(Input.mousePos));
+            this.selected_turret.RenderRange();
+        }
         if (this.selected_entity instanceof Turret)
             this.selected_entity.RenderRange();
-
-        manager.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
+        //Second Gui Layer
         RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
         RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
         RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
@@ -1187,9 +1192,10 @@ let menu =
         let next_wave_time = Math.ceil(manager.map.next_wave_time);
         if (next_wave_time)
         {
-            if (Button(vec(480 - 5, 600 + 5), vec(210, 50), "Próxima onda em " + next_wave_time + " segundos"))
+            if (Button(vec(480 - 5, 600 + 5), vec(210, 50), "Próxima onda em " + next_wave_time + " segundos") || Input.keyDown[90])
             {
                 manager.map.SendNextWave();
+                Input.log("+" + next_wave_time + " gold");
                 Player.gold += next_wave_time;
             }
         }
@@ -1254,12 +1260,14 @@ function Update()
     {
         case 2:
         manager.Update();
+        menu.Update();
         break;
     }
 }
 
 function Render()
 {
+    RenderRectangleFilled("#99F", vec(0, 0), vec(1000, 720));
     switch(game_state)
     {
         case 0:
