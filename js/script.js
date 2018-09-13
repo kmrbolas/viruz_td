@@ -1064,6 +1064,10 @@ class GameMap extends Entity
     }
     get current_wave() { return this.waves[Math.clamp(this.wave_index, 0, this.waves.length - 1)]; }
     get next_wave_time() { return this.current_wave.create_enemy != null ? 0 : this.timer.delay - this.timer.elapsed; }
+    SendNextWave()
+    {
+        this.timer.elapsed = this.timer.delay;
+    }
     Update()
     {
         this.timer.Update();
@@ -1084,7 +1088,6 @@ class GameManager extends EntityManager
     constructor()
     {
         super();
-        this.selected = null;
         this._map = null;
     }
     get map() { return this._map; }
@@ -1096,104 +1099,9 @@ class GameManager extends EntityManager
         this._map.Reset();
         this.AddEntity(this._map);
     }
-    get enemies() { return this.wave_spawner.enemies; }
     IsPositionValid(position, d = 50)
     {
         return InsideRect(position, vec(20, 20), vec(800 - 2 * 20, 600 - 2 * 20)) && this.OverlapCircle(position, d * .7, e => { return e instanceof Turret; }).length == 0 && !this._map.path.IsInside(position, d);
-    }
-    Update()
-    {
-        super.Update();
-        if (Input.mouseClick && InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
-        {
-            if (this.selected instanceof Turret && this.selected.manager != this)
-            {
-                if (Input.keyDown[27])
-                    this.selected = null;
-                else if (!this.IsPositionValid(Input.mousePos))
-                    Input.log("Posição Inválida!");
-                else if (Player.gold - this.selected.cost < 0)
-                    Input.log("Gold Insuficiente!");
-                else
-                {
-                    let t = this.selected.copy;
-                    t.transform.position = Input.mousePos;
-                    this.AddEntity(t);
-                    Player.gold -= this.selected.cost;
-                }
-                if (!Input.keyDown[16]) this.selected = null;
-            }
-            else if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
-            {
-                let s = this.OverlapCircle(Input.mousePos, 30, e => { return e instanceof Turret || e instanceof Enemy; });
-                this.selected = s.length > 0 ? s[0] : null;
-            }
-        }
-    }
-    RenderUI()
-    {
-        this.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
-        RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
-        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
-        RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
-        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1000, 120));
-
-        let next_wave_time = Math.ceil(this.map.next_wave_time);
-        if (next_wave_time)
-        {
-            if (Button(vec(480 - 5, 600 + 5), vec(210, 50), "Próxima onda em " + next_wave_time + " segundos"))
-            {
-                this.map.timer.elapsed = this.map.delay;
-                Player.gold += next_wave_time;
-            }
-        }
-        else
-            Button(vec(480 - 5, 600 + 5), vec(210, 50), "Onda em Andamento!");
-
-
-        Button(vec(700 - 5, 600 + 5), vec(100, 50), "Gold: " + Player.gold);
-        if (Button(vec(700 - 5, 650 + 10), vec(100, 50), "Velocidade: " + Time.timeScale))
-        {
-            Time.timeScale *= 2;
-            if (Time.timeScale > 4)
-                Time.timeScale = 1;
-        }
-        if (this.selected instanceof Entity)
-        {
-            this.selected.transform.push();
-            this.selected.transform.position = vec(900, 100);
-            this.selected.Render();
-            this.selected.transform.pop();
-            RenderTextArray(vec(800, 200), vec(200, 110), this.selected.info);
-        }
-        if (this.selected instanceof Turret && this.selected.manager == this)
-        {
-            this.selected.RenderTowerUpgrades(vec(800, 310));
-        }
-        let i = 0;
-        for (let p in turrets)
-        {
-            let turret = turrets[p];
-            let pos = vec(155 * (Math.floor(i / 2)) + 5, 720 + 55 * -(2 - (i % 2)) - 3);
-            if (Button(pos, vec(150, 50), turret.name + " - " + turret.cost + "g"))
-                this.selected = turret;
-            i++;
-        }
-        Input.RenderMessages(vec(800, 600));
-    }
-    Render()
-    {
-        super.Render();
-        if (this.selected instanceof Turret)
-        {
-            if (this.selected.manager != this)
-            {
-                this.selected.transform.position = Input.mousePos;
-                this.selected.RenderState(this.IsPositionValid(Input.mousePos));
-            }
-            this.selected.RenderRange();
-        }
-        this.RenderUI();
     }
     Reset()
     {
@@ -1222,7 +1130,101 @@ let game_state = 0;
 
 let menu =
 {
+    selected_entity: null,
+    selected_turret: null,
+    RenderInfo(entity)
+    {
+        entity.transform.push();
+        entity.transform.position = vec(900, 100);
+        entity.Render();
+        entity.transform.pop();
+        RenderTextArray(vec(800, 200), vec(200, 110), entity.info);
+    },
+    Render()
+    {
+        if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
+        {
+            if (this.selected_turret)
+            {
+                this.selected_turret.transform.position = Input.mousePos;
+                let check = manager.IsPositionValid(Input.mousePos);
+                this.selected_turret.RenderState(check);
+                this.selected_turret.RenderRange();
+                if (Input.keyDown[27])
+                    this.selected_turret = null;
+                else if (Input.mouseClick)
+                {
+                    if (!check)
+                        Input.log("Posição Inválida");
+                    else if (Player.gold - this.selected_turret.cost < 0)
+                        Input.log("Gold Insuficiente");
+                    else
+                    {
+                        manager.AddEntity(this.selected_turret.copy);
+                        Player.gold -= this.selected_turret.cost;
+                    }
+                    if (!Input.keyDown[16])
+                        this.selected_turret = null;
+                }
+                this.selected_entity = null;
+            }
+            else if (Input.mouseClick)
+            {
+                let s = manager.OverlapCircle(Input.mousePos, 30);
+                this.selected_entity = s.length > 0 ? s[0] : null;
+            }
+        }
 
+        if (this.selected_entity instanceof Turret)
+            this.selected_entity.RenderRange();
+
+        manager.entities.forEach(e => { if (e instanceof KillableEntity) e.RenderLifeBar(); });
+        RenderRectangleStroked("#000", 2, vec(0, 0), vec(800, 600));
+        RenderRectangle("#FFF", "#000", 2, vec(800, 0), vec(200, 720));
+        RenderRectangle("#777", "#000", 2, vec(800, 0), vec(200, 200));
+        RenderRectangle("#FFF", "#000", 2, vec(0, 600), vec(1000, 120));
+    
+        let next_wave_time = Math.ceil(manager.map.next_wave_time);
+        if (next_wave_time)
+        {
+            if (Button(vec(480 - 5, 600 + 5), vec(210, 50), "Próxima onda em " + next_wave_time + " segundos"))
+            {
+                manager.map.SendNextWave();
+                Player.gold += next_wave_time;
+            }
+        }
+        else
+            Button(vec(480 - 5, 600 + 5), vec(210, 50), "Onda em Andamento!");
+    
+        Button(vec(700 - 5, 600 + 5), vec(100, 50), "Gold: " + Player.gold);
+        if (Button(vec(700 - 5, 650 + 10), vec(100, 50), "Velocidade: " + Time.timeScale))
+        {
+            Time.timeScale *= 2;
+            if (Time.timeScale > 4)
+                Time.timeScale = 1;
+        }
+        if (this.selected_turret)
+            this.RenderInfo(this.selected_turret);
+        else if (this.selected_entity)
+        {
+            this.RenderInfo(this.selected_entity);
+            if (this.selected_entity instanceof Turret)
+            {
+                this.selected_entity.RenderTowerUpgrades(vec(800, 310));
+            }
+        }
+        
+        let i = 0;
+        for (let p in turrets)
+        {
+            let turret = turrets[p];
+            let pos = vec(155 * (Math.floor(i / 2)) + 5, 720 + 55 * -(2 - (i % 2)) - 3);
+            if (Button(pos, vec(150, 50), turret.name + " - " + turret.cost + "g"))
+                this.selected_turret = turret;
+            i++;
+        }
+        Input.RenderMessages(vec(800, 600));
+    }
 };
 
 function RenderStartMenu()
@@ -1265,6 +1267,7 @@ function Render()
         break;
         case 2:
         manager.Render();
+        menu.Render();
         break;
     }
 }
