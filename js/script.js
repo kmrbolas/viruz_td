@@ -209,6 +209,7 @@ let Player =
 {
     level: 0,
     gold: 120,
+    score: 0,
 }
 function Button(pos, size, text, fillStyle = "#BBB", strokeStyle = "#000", lineWidth = 0)
 {
@@ -689,6 +690,7 @@ class EnemyFactory
                 Player.gold += this.gold;
                 Input.log("+" + this.gold + " gold");
             }
+            Player.score += this.max_life;
             this.Release();
         };
         return e;
@@ -1062,8 +1064,10 @@ class GameMap extends Entity
             this.enemy_index++;
         });
     }
+    get core() { return this.path.core; }
     get current_wave() { return this.waves[Math.clamp(this.wave_index, 0, this.waves.length - 1)]; }
     get next_wave_time() { return this.current_wave.create_enemy != null ? 0 : this.timer.delay - this.timer.elapsed; }
+    get finished() { return this.wave_index == this.waves.length; }
     SendNextWave()
     {
         this.timer.elapsed = this.timer.delay;
@@ -1081,6 +1085,7 @@ class GameMap extends Entity
     {
         this.wave_index = 0;
         this.enemy_index = 0;
+        this.core._life = this.core.max_life;
     }
 }
 class GameManager extends EntityManager
@@ -1122,13 +1127,16 @@ let waves =
 let maps =
 [
     new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
+    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
+    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
 ];
 
 let manager = new GameManager();
 
+let map_index = 0;
 let game_state = 0;
 
-let menu =
+let gui =
 {
     selected_entity: null,
     selected_turret: null,
@@ -1142,6 +1150,12 @@ let menu =
     },
     Update()
     {
+        if (manager.map.core.life <= 0)
+        {
+            game_state = 1;
+            return;
+        }
+        if (this.selected_turret) this.selected_entity = null;
         if (InsideRect(Input.mousePos, vec(0, 0), vec(800, 600)))
         {
             if (this.selected_turret)
@@ -1162,7 +1176,6 @@ let menu =
                     if (!Input.keyDown[16])
                         this.selected_turret = null;
                 }
-                this.selected_entity = null;
             }
             else if (Input.mouseClick)
             {
@@ -1245,6 +1258,28 @@ function RenderStartMenu()
     }
 }
 
+function RenderGameOver()
+{
+    let size = vec(150, 50);
+    let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
+    if (Button(pos, size, "Tentar Novamente"))
+    {
+        manager.Reset();
+        game_state = 2;
+    }
+}
+
+function RenderScore()
+{
+    let size = vec(100, 50);
+    let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
+    if (Button(pos, size, "Continuar"))
+    {
+        manager.map = maps[++map_index];
+        game_state = 2;
+    }
+}
+
 function Start()
 {
     sprites.grass.top_position = vec(0, 0);
@@ -1256,11 +1291,15 @@ function Start()
 
 function Update()
 {
+    if (manager.map.core.life == 0)
+        game_state = 1;
+    else if (manager.map.finished && !manager.entities.filter(e => { return e instanceof Enemy; }).length)
+        game_state = 3;
     switch(game_state)
     {
         case 2:
         manager.Update();
-        menu.Update();
+        gui.Update();
         break;
     }
 }
@@ -1273,9 +1312,15 @@ function Render()
         case 0:
         RenderStartMenu();
         break;
+        case 1:
+        RenderGameOver();
+        break;
         case 2:
         manager.Render();
-        menu.Render();
+        gui.Render();
+        break;
+        case 3:
+        RenderScore();
         break;
     }
 }
