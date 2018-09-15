@@ -945,7 +945,7 @@ class MachineGun extends Turret
         this.name = "Metralhadora";
         this.cost = 80;
     }
-    get copy() { return new MachineGun(this.sprite_sheet, this.bullet_sprite, this.transform); }
+    get copy() { return new MachineGun(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
     get chains() { return 0; }
     get info()
@@ -1048,7 +1048,7 @@ class AntiAir extends BasicTurret
 }
 let turrets =
 {
-    machine_gun: new MachineGun(sprites.machine_gun, sprites.bullet),
+    machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
 };
