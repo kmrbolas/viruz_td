@@ -785,16 +785,21 @@ class Rocket extends Projectile
 }
 class Upgrade
 {
-    constructor(base_value, max_level, scale = .10)
+    constructor(base_value, max_level, scale = .10, level = 1)
     {
         this.base_value = base_value;
         this.scale = scale;
         this.max_level = max_level;
-        this._level = 0;
+        this._level = level;
     }
     get level() { return this._level; }
     set level(value) { this._level = Math.clamp(value, 0, this.max_level); }
-    get value() { return this.base_value * (1 + this.scale * this.level); }
+    get value()
+    {
+        if (!this.level)
+            return 0;
+        return this.base_value * (1 + this.scale * (this.level - 1));
+    }
     get is_maxed() { return this._level == this.max_level; }
 }
 class Turret extends Entity
@@ -807,12 +812,12 @@ class Turret extends Entity
         this.fov = Math.PI / 6;
         this.targets = Array(0);
         this.targets_in_range = Array(0);
-        this.upgrades = { range: new Upgrade(base_range, 4) };
+        this.upgrades = { Alcance: new Upgrade(base_range, 4) };
         this.name = "Turret";
         this.cost = 0;
     }
-    get copy() { return new Turret(this.fire_rate, this.upgrades.range.base_value, this.transform); }
-    get range() { return this.upgrades.range.value; }
+    get copy() { return new Turret(this.fire_rate, this.range, this.transform); }
+    get range() { return this.upgrades.Alcance.value; }
     get info() { return [this.name, "Alcance: " + this.range, "Tiros por segundo: " + this.fire_rate]; }
     get fire_rate() { return this.timer.frequency; }
     set fire_rate(value) { this.timer.frequency = value; }
@@ -823,7 +828,7 @@ class Turret extends Entity
     }
     UpdateTargetsInRange()
     {
-        this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.upgrades.range.value, (e) => { return e instanceof Enemy; });
+        this.targets_in_range = this.manager.OverlapCircle(this.transform.position, this.range, (e) => { return e instanceof Enemy; });
         this.targets_in_range = this.targets_in_range.sort((a, b) => { return b.traveled_distance - a.traveled_distance; });
     }
     UpdateTargets()
@@ -856,7 +861,7 @@ class Turret extends Entity
     }
     RenderRange(color = "#999")
     {
-        Turret.RenderRange(this.transform, this.upgrades.range.value, this.fov, color);
+        Turret.RenderRange(this.transform, this.range, this.fov, color);
     }
     RenderState(b)
     {
@@ -867,17 +872,14 @@ class Turret extends Entity
     }
     RenderTowerUpgrades(top_position)
     {
-        let i = 0;
+        let size = vec(200, 25);
+        let pos = top_position.add(vec(0, 5));
         for (let p in this.upgrades)
         {
             let upgrade = this.upgrades[p];
-            let size = vec(200, 25);
-            let pos = top_position.add(vec(0, (size.y + 5) * i + 5));
-            let upgrade_cost = (upgrade.level + 1) * 15;
+            let upgrade_cost = (upgrade.level + 1) * 30;
             if (upgrade.is_maxed)
-            {
                 Button(pos, size, p + ", Nivel: " + upgrade.level);
-            }
             else
             {
                 if (Button(pos, size, p + ", Nivel: " + upgrade.level + ", Custo: " + upgrade_cost) && Player.gold >= upgrade_cost)
@@ -886,7 +888,7 @@ class Turret extends Entity
                     Player.gold -= upgrade_cost;
                 }
             }
-            i++;
+            pos = pos.add(vec(0, size.y + 5));
         }
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
@@ -933,18 +935,19 @@ class MachineGun extends Turret
     constructor(transform = new Transform())
     {
         super(5, 150, transform);
+        this.sprite_sheet = sprites.machine_gun;
+        this.bullet_sprite = sprites.bullet;
         this.left = false;
         this.transform.scale = .5
-        this.upgrades.damage = new Upgrade(35, 4);
-        this.upgrades.chains = new Upgrade(0, 4);
+        this.upgrades.Dano = new Upgrade(35, 4);
         this.bullet_aoe = 70;
         this.bullet_speed = 700;
         this.name = "Metralhadora";
         this.cost = 80;
     }
-    get copy() { return new MachineGun(this.transform); }
-    get damage() { return this.upgrades.damage.value; }
-    get chains() { return this.upgrades.chains.level; }
+    get copy() { return new MachineGun(this.sprite_sheet, this.bullet_sprite, this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get chains() { return 0; }
     get info()
     {
         return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage, "Ricochetes: " + this.chains);
@@ -956,13 +959,13 @@ class MachineGun extends Turret
     Shoot()
     {
         this.left = !this.left;
-        this.sprite = this.left ? sprites.machine_gun[1] : sprites.machine_gun[2];
-        this.manager.AddEntity(new Bullet(sprites.bullet, this.upgrades.damage.value, this.upgrades.chains.level, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
+        this.sprite = this.left ? this.sprite_sheet[1] : this.sprite_sheet[2];
+        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, this.chains, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
     }
     Render()
     {
         super.Render();
-        if (this.targets.length == 0) this.sprite = sprites.machine_gun[0];
+        if (this.targets.length == 0) this.sprite = this.sprite_sheet[0];
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
@@ -974,6 +977,18 @@ class MachineGun extends Turret
         sprite.Render();
     }
 
+}
+class LaserGun extends MachineGun
+{
+    constructor(transform = new Transform())
+    {
+        super(transform);
+        this.upgrades.Dano = new Upgrade(35, 4);
+        this.upgrades.Ricochetes = new Upgrade(1, 3, 1);
+        this.bullet_aoe = 70;
+        this.bullet_speed = 700;
+        this.name = "Torre de Laser";
+    }
 }
 class RocketLauncher extends BasicTurret
 {
@@ -1033,7 +1048,7 @@ class AntiAir extends BasicTurret
 }
 let turrets =
 {
-    machine_gun: new MachineGun(),
+    machine_gun: new MachineGun(sprites.machine_gun, sprites.bullet),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
 };
