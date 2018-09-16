@@ -208,7 +208,7 @@ let Time =
 let Player =
 {
     level: 0,
-    gold: 120,
+    gold: 5000,
     score: 0,
 }
 function Button(pos, size, text, fillStyle = "#BBB", strokeStyle = "#000", lineWidth = 0)
@@ -785,7 +785,7 @@ class Rocket extends Projectile
 }
 class Upgrade
 {
-    constructor(base_value, max_level, scale = .10, level = 1)
+    constructor(base_value, max_level, scale = .25, level = 1)
     {
         this.base_value = base_value;
         this.scale = scale;
@@ -815,6 +815,7 @@ class Turret extends Entity
         this.upgrades = { Alcance: new Upgrade(base_range, 4) };
         this.name = "Turret";
         this.cost = 0;
+        this.evolutions = [];
     }
     get copy() { return new Turret(this.fire_rate, this.range, this.transform); }
     get range() { return this.upgrades.Alcance.value; }
@@ -874,6 +875,7 @@ class Turret extends Entity
     {
         let size = vec(200, 25);
         let pos = top_position.add(vec(0, 5));
+        let evolution_ready = true;
         for (let p in this.upgrades)
         {
             let upgrade = this.upgrades[p];
@@ -882,6 +884,7 @@ class Turret extends Entity
                 Button(pos, size, p + ", Nivel: " + upgrade.level);
             else
             {
+                evolution_ready = false;
                 if (Button(pos, size, p + ", Nivel: " + upgrade.level + ", Custo: " + upgrade_cost) && Player.gold >= upgrade_cost)
                 {
                     upgrade.level++;
@@ -890,6 +893,20 @@ class Turret extends Entity
             }
             pos = pos.add(vec(0, size.y + 5));
         }
+        if (!evolution_ready)
+            return;
+        pos = pos.add(vec(0, 20));
+        this.evolutions.forEach(e => {
+            if (Button(pos, size, "Evolve to " + e.name + " " + e.cost + "g") && Player.gold >= e.cost)
+            {
+                this.Release();
+                let t = e.copy;
+                t.transform = this.transform;
+                manager.AddEntity(t);
+                Player.gold -= e.cost;
+            }
+            pos = pos.add(vec(0, size.y + 5));
+        });
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
     {
@@ -938,8 +955,8 @@ class MachineGun extends Turret
         this.sprite_sheet = sprites.machine_gun;
         this.bullet_sprite = sprites.bullet;
         this.left = false;
-        this.transform.scale = .5
-        this.upgrades.Dano = new Upgrade(35, 4);
+        this.transform.scale = .5;
+        this.upgrades.Dano = new Upgrade(30, 5);
         this.bullet_aoe = 70;
         this.bullet_speed = 700;
         this.name = "Metralhadora";
@@ -948,10 +965,7 @@ class MachineGun extends Turret
     get copy() { return new MachineGun(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
     get chains() { return 0; }
-    get info()
-    {
-        return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage, "Ricochetes: " + this.chains);
-    }
+    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
     get bullet_position()
     {
         return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale));
@@ -983,12 +997,16 @@ class LaserGun extends MachineGun
     constructor(transform = new Transform())
     {
         super(transform);
-        this.upgrades.Dano = new Upgrade(35, 4);
-        this.upgrades.Ricochetes = new Upgrade(1, 3, 1);
+        this.upgrades.Dano = new Upgrade(60, 4);
+        this.upgrades.Ricochetes = new Upgrade(1, 2, 1, 0);
         this.bullet_aoe = 70;
         this.bullet_speed = 700;
-        this.name = "Torre de Laser";
+        this.cost = 0;
+        this.name = "Arma de Laser";
     }
+    get copy() { return new LaserGun(this.transform); }
+    get chains() { return this.upgrades.Ricochetes.value; }
+    get info() { return super.info.concat("Ricochetes: " + this.chains); }
 }
 class RocketLauncher extends BasicTurret
 {
@@ -1051,7 +1069,9 @@ let turrets =
     machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
+    // laser_gun: new LaserGun(),
 };
+turrets.machine_gun.evolutions.push(new LaserGun());
 class GameMap extends Entity
 {
     constructor(background_sprite, path, waves)
@@ -1136,12 +1156,13 @@ let paths =
 let waves =
 [
     [wave(10), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
+    [wave(10), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
 ];
 
 let maps =
 [
     new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
-    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
+    new GameMap(sprites.backgrounds[0], paths[0], waves[1]),
 ];
 
 let manager = new GameManager();
@@ -1192,7 +1213,7 @@ let gui =
             }
             else if (Input.mouseClick)
             {
-                let s = manager.OverlapCircle(Input.mousePos, 30);
+                let s = manager.OverlapCircle(Input.mousePos, 30, e => { return e instanceof Turret || e instanceof Enemy; });
                 this.selected_entity = s.length > 0 ? s[0] : null;
             }
         }
