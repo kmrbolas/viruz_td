@@ -812,7 +812,7 @@ class Turret extends Entity
         this.fov = Math.PI / 6;
         this.targets = Array(0);
         this.targets_in_range = Array(0);
-        this.upgrades = { Alcance: new Upgrade(base_range, 4) };
+        this.upgrades = { Alcance: new Upgrade(base_range, 4, .1) };
         this.name = "Turret";
         this.cost = 0;
         this.evolutions = [];
@@ -870,43 +870,6 @@ class Turret extends Entity
         sprite.transform = this.transform;
         sprite.transform.rotation = 0;
         sprite.Render();
-    }
-    RenderTowerUpgrades(top_position)
-    {
-        let size = vec(200, 25);
-        let pos = top_position.add(vec(0, 5));
-        let evolution_ready = true;
-        for (let p in this.upgrades)
-        {
-            let upgrade = this.upgrades[p];
-            let upgrade_cost = (upgrade.level + 1) * 30;
-            if (upgrade.is_maxed)
-                Button(pos, size, p + ", Nivel: " + upgrade.level);
-            else
-            {
-                evolution_ready = false;
-                if (Button(pos, size, p + ", Nivel: " + upgrade.level + ", Custo: " + upgrade_cost) && Player.gold >= upgrade_cost)
-                {
-                    upgrade.level++;
-                    Player.gold -= upgrade_cost;
-                }
-            }
-            pos = pos.add(vec(0, size.y + 5));
-        }
-        if (!evolution_ready)
-            return;
-        pos = pos.add(vec(0, 20));
-        this.evolutions.forEach(e => {
-            if (Button(pos, size, "Evolve to " + e.name + " " + e.cost + "g") && Player.gold >= e.cost)
-            {
-                this.Release();
-                let t = e.copy;
-                t.transform = this.transform;
-                manager.AddEntity(t);
-                Player.gold -= e.cost;
-            }
-            pos = pos.add(vec(0, size.y + 5));
-        });
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
     {
@@ -1071,7 +1034,6 @@ let turrets =
     anti_air: new AntiAir(),
     // laser_gun: new LaserGun(),
 };
-turrets.machine_gun.evolutions.push(new LaserGun());
 class GameMap extends Entity
 {
     constructor(background_sprite, path, waves)
@@ -1146,6 +1108,12 @@ class GameManager extends EntityManager
     {
         this.map = this._map;
     }
+    AddEntity(entity)
+    {
+        if (entity instanceof MachineGun && !(entity instanceof LaserGun))
+            entity.evolutions.push(new LaserGun());
+        super.AddEntity(entity);
+    }
 }
 
 let paths =
@@ -1181,6 +1149,43 @@ let gui =
         entity.Render();
         entity.transform.pop();
         RenderTextArray(vec(800, 200), vec(200, 110), entity.info);
+    },
+    RenderTowerUpgrades(top_position, turret)
+    {
+        let size = vec(200, 25);
+        let pos = top_position.add(vec(0, 5));
+        let evolution_ready = true;
+        for (let p in turret.upgrades)
+        {
+            let upgrade = turret.upgrades[p];
+            let upgrade_cost = (upgrade.level + 1) * 30;
+            if (upgrade.is_maxed)
+                Button(pos, size, p + ", Nivel: " + upgrade.level);
+            else
+            {
+                evolution_ready = false;
+                if (Button(pos, size, p + ", Nivel: " + upgrade.level + ", Custo: " + upgrade_cost) && Player.gold >= upgrade_cost)
+                {
+                    upgrade.level++;
+                    Player.gold -= upgrade_cost;
+                }
+            }
+            pos = pos.add(vec(0, size.y + 5));
+        }
+        if (!evolution_ready)
+            return;
+        pos = pos.add(vec(0, 20));
+        turret.evolutions.forEach(e => {
+            if (Button(pos, size, "Evoluir para " + e.name + " " + e.cost + "g") && Player.gold >= e.cost)
+            {
+                let t = e.copy;
+                t.transform = turret.transform;
+                manager.AddEntity(this.selected_entity = t);
+                turret.Release();
+                Player.gold -= e.cost;
+            }
+            pos = pos.add(vec(0, size.y + 5));
+        });
     },
     Update()
     {
@@ -1263,7 +1268,7 @@ let gui =
             this.RenderInfo(this.selected_entity);
             if (this.selected_entity instanceof Turret)
             {
-                this.selected_entity.RenderTowerUpgrades(vec(800, 310));
+                this.RenderTowerUpgrades(vec(800, 310), this.selected_entity);
             }
         }
         
