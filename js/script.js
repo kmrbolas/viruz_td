@@ -345,7 +345,7 @@ let sprites =
         Sprite.CreateArray("images/enemies/wasp_d_0.png", "images/enemies/wasp_c_1.png", "images/enemies/wasp_b_2.png", "images/enemies/wasp_a_3.png", "images/enemies/wasp_a_4.png")
     ],
     machine_gun: Sprite.CreateArray("images/turrets/machine_gun_0.png", "images/turrets/machine_gun_1.png", "images/turrets/machine_gun_2.png", "images/turrets/machine_gun_enabled.png", "images/turrets/machine_gun_disabled.png"),
-    laser_gun: Sprite.CreateArray("images/turrets/laser_gun_0.png", "images/turrets/laser_gun_1.png", "images/turrets/laser_gun_2.png"),
+    laser_gun: Sprite.CreateSheet("images/turrets/p_laser_gun_", 3, ".png"),
     anti_air: Sprite.CreateArray("images/turrets/antiair.png", "images/turrets/antiair_enabled.png", "images/turrets/antiair_disabled.png"),
     rocket_launcher: Sprite.CreateArray("images/turrets/rocket_launcher.png", "images/turrets/rocket_launcher_enabled.png", "images/turrets/rocket_launcher_disabled.png"),
     base: Sprite.CreateArray("images/turrets/base.png", "images/turrets/base_enabled.png", "images/turrets/base_disabled.png"),
@@ -353,9 +353,8 @@ let sprites =
     bullet: new Sprite("images/projectiles/bullet/0.png"),
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
     explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
-    track: new Sprite("images/background/Track01.png"),
     grass: new Sprite("images/background/grass.jpg"),
-    backgrounds: Sprite.CreateSheet("images/background/Track", 3,".png"),
+    paths: Sprite.CreateSheet("images/background/Track", 3,".png"),
     menu_background: new Sprite("images/background/menu.png"),
 }
 class Entity extends Transformable
@@ -1047,7 +1046,6 @@ let turrets =
     machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
-    // laser_gun: new LaserGun(),
 };
 class GameMap extends Entity
 {
@@ -1133,9 +1131,9 @@ class GameManager extends EntityManager
 
 let paths =
 [
-    new Path(sprites.backgrounds[0], new KillableEntity(5000, trans(vec(375, 535))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
-    new Path(sprites.backgrounds[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
-    new Path(sprites.backgrounds[2], new KillableEntity(5000, trans(vec(580, 542))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
+    new Path(sprites.paths[0], new KillableEntity(5000, trans(vec(375, 535))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
+    new Path(sprites.paths[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
+    new Path(sprites.paths[2], new KillableEntity(5000, trans(vec(580, 542))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
 ];
 
 let waves =
@@ -1147,9 +1145,9 @@ let waves =
 
 let maps =
 [
-    new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
-    new GameMap(sprites.backgrounds[1], paths[1], waves[1]),
-    new GameMap(sprites.backgrounds[2], paths[2], waves[2]),
+    new GameMap(sprites.paths[0], paths[0], waves[0]),
+    new GameMap(sprites.paths[1], paths[1], waves[1]),
+    new GameMap(sprites.paths[2], paths[2], waves[2]),
 ];
 
 let manager = new GameManager();
@@ -1364,8 +1362,7 @@ function RenderCredits()
 function Start()
 {
     sprites.grass.top_position = vec(0, 0);
-    sprites.track.top_position = vec(0, 0);
-    sprites.backgrounds.forEach(b => { b.top_position = vec(0, 0); });
+    sprites.paths.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
     manager.map = maps[0];    
 }
