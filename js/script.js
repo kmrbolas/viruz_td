@@ -355,7 +355,7 @@ let sprites =
     explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
     track: new Sprite("images/background/Track01.png"),
     grass: new Sprite("images/background/grass.jpg"),
-    backgrounds: Sprite.CreateSheet("images/background/Track", 2,".png"),
+    backgrounds: Sprite.CreateSheet("images/background/Track", 3,".png"),
     menu_background: new Sprite("images/background/menu.png"),
 }
 class Entity extends Transformable
@@ -905,16 +905,15 @@ class MachineGun extends Turret
     get damage() { return this.upgrades.Dano.value; }
     get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
     get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale)); }
+    get sprite() { return this.targets.length == 0 ? this.sprite_sheet[0] : this.left ? this.sprite_sheet[1] : this.sprite_sheet[2]; }
     Shoot()
     {
         this.left = !this.left;
-        this.sprite = this.left ? this.sprite_sheet[1] : this.sprite_sheet[2];
         this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, 0, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
     }
     Render()
     {
         super.Render();
-        if (this.targets.length == 0) this.sprite = this.sprite_sheet[0];
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
@@ -948,16 +947,15 @@ class LaserGun extends Turret
     get damage() { return this.upgrades.Dano.value; }
     get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage, "Ricochetes: " + this.chains); }
     get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale)); }
+    get sprite() { return this.targets.length == 0 ? this.sprite_sheet[0] : this.left ? this.sprite_sheet[1] : this.sprite_sheet[2]; }
     Shoot()
     {
         this.left = !this.left;
-        this.sprite = this.left ? this.sprite_sheet[1] : this.sprite_sheet[2];
         this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, this.chains, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
     }
     Render()
     {
         super.Render();
-        if (this.targets.length == 0) this.sprite = this.sprite_sheet[0];
         this.sprite.transform = this.transform;
         this.sprite.Render();
     }
@@ -1135,13 +1133,15 @@ class GameManager extends EntityManager
 
 let paths =
 [
-    new Path(sprites.backgrounds[0], new KillableEntity(5000, trans(vec(375, 520))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
+    new Path(sprites.backgrounds[0], new KillableEntity(5000, trans(vec(375, 535))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
     new Path(sprites.backgrounds[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
+    new Path(sprites.backgrounds[2], new KillableEntity(5000, trans(vec(580, 542))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
 ];
 
 let waves =
 [
     [wave(10), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
+    [wave(10), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
     [wave(10), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
 ];
 
@@ -1149,6 +1149,7 @@ let maps =
 [
     new GameMap(sprites.backgrounds[0], paths[0], waves[0]),
     new GameMap(sprites.backgrounds[1], paths[1], waves[1]),
+    new GameMap(sprites.backgrounds[2], paths[2], waves[2]),
 ];
 
 let manager = new GameManager();
