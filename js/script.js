@@ -354,7 +354,7 @@ let sprites =
     explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
     explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("images/background/grass.jpg"),
-    paths: Sprite.CreateSheet("images/background/Track", 3,".png"),
+    paths: Sprite.CreateSheet("images/background/Track", 4,".png"),
     menu_background: new Sprite("images/background/menu.png"),
 }
 class Entity extends Transformable
@@ -1134,6 +1134,7 @@ let paths =
     new Path(sprites.paths[0], new KillableEntity(5000, trans(vec(375, 580))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
     new Path(sprites.paths[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
     new Path(sprites.paths[2], new KillableEntity(5000, trans(vec(580, 588))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
+    new Path(sprites.paths[3], new KillableEntity(5000, trans(vec(270, 592))), vec(0, 358), vec(136, 358), vec(136, 43), vec(360, 43), vec(360, 145), vec(542, 145), vec(542, 50), vec(720, 50), vec(720, 255), vec(318, 255), vec(318, 393), vec(583, 393), vec(583, 505), vec(270, 505)),
 ];
 
 let waves =
@@ -1148,6 +1149,7 @@ let maps =
     new GameMap(sprites.paths[0], paths[0], waves[0]),
     new GameMap(sprites.paths[1], paths[1], waves[1]),
     new GameMap(sprites.paths[2], paths[2], waves[2]),
+    new GameMap(sprites.paths[3], paths[3], waves[0]),
 ];
 
 let manager = new GameManager();
