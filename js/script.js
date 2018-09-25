@@ -885,46 +885,6 @@ class Turret extends Entity
         context.restore();
     }
 }
-class MachineGun extends Turret
-{
-    constructor(transform = new Transform())
-    {
-        super(5, 150, transform);
-        this.sprite_sheet = sprites.machine_gun;
-        this.bullet_sprite = sprites.bullet;
-        this.left = false;
-        this.transform.scale = .5;
-        this.upgrades.Dano = new Upgrade(30, 5);
-        this.bullet_aoe = 0;
-        this.bullet_speed = 700;
-        this.name = "Metralhadora";
-        this.cost = 80;
-    }
-    get copy() { return new MachineGun(this.transform); }
-    get damage() { return this.upgrades.Dano.value; }
-    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
-    get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale)); }
-    get sprite() { return this.targets.length == 0 ? this.sprite_sheet[0] : this.left ? this.sprite_sheet[1] : this.sprite_sheet[2]; }
-    Shoot()
-    {
-        this.left = !this.left;
-        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, 0, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
-    }
-    Render()
-    {
-        super.Render();
-        this.sprite.transform = this.transform;
-        this.sprite.Render();
-    }
-    RenderState(b)
-    {
-        super.RenderState(b);
-        let sprite = sprites.machine_gun[b ? 3 : 4];
-        sprite.transform = this.transform;
-        sprite.Render();
-    }
-
-}
 class LaserGun extends Turret
 {
     constructor(transform = new Transform())
@@ -957,6 +917,68 @@ class LaserGun extends Turret
         super.Render();
         this.sprite.transform = this.transform;
         this.sprite.Render();
+    }
+
+}
+class MiniGun extends Turret
+{
+    constructor(transform = new Transform())
+    {
+        super(5, 250, transform);
+        this.name = "MiniGun";
+        this.cost = 120;
+        this.upgrades.Dano = new Upgrade(100, 5);
+        this.bullet_speed = 850;
+        this.bullet_sprite = sprites.bullet;
+    }
+    get copy() { return new MiniGun(this.transform); }
+    get chains() { return this.upgrades.Ricochetes.value; }
+    get damage() { return this.upgrades.Dano.value; }
+    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
+    get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation).mult(30 * this.transform.scale)); }
+    Shoot()
+    {
+        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, 0, 10, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
+    }
+}
+class MachineGun extends Turret
+{
+    constructor(transform = new Transform())
+    {
+        super(5, 150, transform);
+        this.sprite_sheet = sprites.machine_gun;
+        this.bullet_sprite = sprites.bullet;
+        this.left = false;
+        this.transform.scale = .5;
+        this.upgrades.Dano = new Upgrade(30, 5);
+        this.bullet_aoe = 0;
+        this.bullet_speed = 700;
+        this.name = "Metralhadora";
+        this.cost = 80;
+        this.evolutions = [new LaserGun, new MiniGun];
+    }
+    get copy() { return new MachineGun(this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
+    get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale)); }
+    get sprite() { return this.targets.length == 0 ? this.sprite_sheet[0] : this.left ? this.sprite_sheet[1] : this.sprite_sheet[2]; }
+    Shoot()
+    {
+        this.left = !this.left;
+        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, 0, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
+    }
+    Render()
+    {
+        super.Render();
+        this.sprite.transform = this.transform;
+        this.sprite.Render();
+    }
+    RenderState(b)
+    {
+        super.RenderState(b);
+        let sprite = sprites.machine_gun[b ? 3 : 4];
+        sprite.transform = this.transform;
+        sprite.Render();
     }
 
 }
@@ -1120,12 +1142,6 @@ class GameManager extends EntityManager
     Reset()
     {
         this.map = this._map;
-    }
-    AddEntity(entity)
-    {
-        if (entity instanceof MachineGun && !(entity instanceof LaserGun))
-            entity.evolutions.push(new LaserGun());
-        super.AddEntity(entity);
     }
 }
 
