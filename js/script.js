@@ -659,6 +659,7 @@ class EnemyFactory
         e.type = this.type;
         e.path = path;
         e.name = this.name;
+        e.rank = rank;
         e.gold = 3 * (rank + 1);
         SetProperty(e, "info", function() {
             return [this.name + "-" + (rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S"),
@@ -889,7 +890,7 @@ class LaserGun extends Turret
 {
     constructor(transform = new Transform())
     {
-        super(5, 195, transform);
+        super(4 , 195, transform);
         this.sprite_sheet = sprites.laser_gun;
         this.bullet_sprite = sprites.bullet;
         this.left = false;
@@ -904,9 +905,14 @@ class LaserGun extends Turret
     get copy() { return new LaserGun(this.transform); }
     get chains() { return this.upgrades.Ricochetes.value; }
     get damage() { return this.upgrades.Dano.value; }
-    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage, "Ricochetes: " + this.chains); }
+    get info() { return super.info.concat("Alvos: Rank B ou inferior", "Dano: " + this.damage, "Ricochetes: " + this.chains); }
     get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation + (this.left ? -.5 : .5)).mult(30 * this.transform.scale)); }
     get sprite() { return this.targets.length == 0 ? this.sprite_sheet[0] : this.left ? this.sprite_sheet[1] : this.sprite_sheet[2]; }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.filter(e => { return 2 >= e.rank; });
+    }
     Shoot()
     {
         this.left = !this.left;
@@ -924,21 +930,28 @@ class MiniGun extends Turret
 {
     constructor(transform = new Transform())
     {
-        super(5, 250, transform);
+        super(15, 250, transform);
         this.name = "MiniGun";
         this.cost = 120;
         this.upgrades.Dano = new Upgrade(100, 5);
+        this.upgrades.Critico = new Upgrade(.15, 5, 1, 0);
         this.bullet_speed = 850;
         this.bullet_sprite = sprites.bullet;
     }
     get copy() { return new MiniGun(this.transform); }
     get chains() { return this.upgrades.Ricochetes.value; }
     get damage() { return this.upgrades.Dano.value; }
-    get info() { return super.info.concat("Alvos: Aéreos e Terrestres", "Dano: " + this.damage); }
+    get info() { return super.info.concat("Alvos: Rank B ou superior", "Dano: " + this.damage, "Chance de Crítico: " + Math.ceil(this.crit * 100) + "%"); }
     get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation).mult(30 * this.transform.scale)); }
+    get crit() { return this.upgrades.Critico.value; }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.filter(e => { return 2 <= e.rank; });
+    }
     Shoot()
     {
-        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, 0, 10, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
+        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.crit > Math.random() ? this.damage * 1.5 : this.damage, 0, 10, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation)));
     }
 }
 class MachineGun extends Turret
@@ -1162,8 +1175,8 @@ let waves =
 
 let maps =
 [
-    new GameMap(sprites.paths[0], paths[0], waves[0]),
     new GameMap(sprites.paths[1], paths[1], waves[1]),
+    new GameMap(sprites.paths[0], paths[0], waves[0]),
     new GameMap(sprites.paths[2], paths[2], waves[2]),
     new GameMap(sprites.paths[3], paths[3], waves[0]),
 ];
