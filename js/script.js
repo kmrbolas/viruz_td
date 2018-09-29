@@ -962,6 +962,7 @@ class MiniGun extends Turret
         super.Render();
         this.anim.Update();
         this.anim.transform = this.transform;
+        this.anim.transform.scale = this.transform.scale * 1.2;
         if (!this.targets.length) this.anim.sprite_index = 0;
         this.anim.Render();
     }
@@ -1147,6 +1148,7 @@ class GameMap extends Entity
         this.timer.elapsed = 0;
         this.wave_index = 0;
         this.enemy_index = 0;
+        this.timer.delay = this.current_wave.delay;
         this.core._life = this.core.max_life;
     }
 }
@@ -1246,7 +1248,7 @@ let gui =
             if (Button(pos, size, e.name + " " + e.cost + "g") && Player.gold >= e.cost)
             {
                 let t = e.copy;
-                t.transform = turret.transform;
+                t.transform.position = turret.transform.position;
                 manager.AddEntity(this.selected_entity = t);
                 turret.Release();
                 Player.gold -= e.cost;
