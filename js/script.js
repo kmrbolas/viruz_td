@@ -936,7 +936,7 @@ class MiniGun extends Turret
         this.transform.scale = .5;
         this.name = "MiniGun";
         this.cost = 120;
-        this.upgrades.Dano = new Upgrade(100, 5);
+        this.upgrades.Dano = new Upgrade(50, 5);
         this.upgrades.Critico = new Upgrade(.15, 4, 1, 0);
         this.bullet_speed = 850;
         this.bullet_sprite = sprites.bullet;
