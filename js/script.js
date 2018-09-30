@@ -727,6 +727,45 @@ class Projectile extends Entity
     }
     Render()
     {
+        RenderRectangleFilled("#F00", this.transform.position, vec(5, 5));
+    }
+    OnHit(targets)
+    {
+        this.Release();
+    }
+
+}
+class FreeProjectile extends Entity
+{
+    constructor(aoe, speed, direction, max_distance, transform = new Transform())
+    {
+        super(transform);
+        this.aoe = aoe;
+        this.speed = speed;
+        this.direction = direction;
+        this.max_distance = max_distance;
+        this.origin = transform.position;
+    }
+    get copy() { return new FreeProjectile(this.aoe, this.speed, this.main_target, this.transform); }
+    Update()
+    {
+        this.transform.position = this.direction.mult(this.speed * Time.deltaTime).add(this.transform.position);
+        this.transform.rotation = this.direction.angle;
+        if (Vector2.distance(this.origin, this.transform.position) > this.max_distance)
+            return this.Release();
+        let targets = this.manager.OverlapCircle(this.transform.position, 5 * this.speed * Time.deltaTime, e => { return e instanceof Enemy; });
+        if (targets.length > 0)
+        {
+            targets = this.manager.OverlapCircle(this.transform.position, this.aoe, e => { return e instanceof Enemy; });
+            targets = targets.sort((a, b) => { return a.transform.position.distance(this.transform.position) - b.transform.position.distance(this.transform.position); });
+            if (targets.length > 0)
+                this.OnHit(targets);
+            else
+                this.Release();
+        }
+    }
+    Render()
+    {
         RenderRectangleFilled("#F00", this.transform.position, vec(25, 25));
     }
     OnHit(targets)
@@ -1038,6 +1077,27 @@ class CannonTurret extends Turret
     }
 
 }
+class Shotgun extends CannonTurret
+{
+    constructor(transform = new Transform())
+    {
+        super(sprites.rocket_launcher, 3, 180, transform);
+        this.upgrades.Alcance.max_level = 1;
+        this.upgrades.damage = new Upgrade(40, 4);
+        this.upgrades.N = new Upgrade(4, 4, .5, 1);
+        this.name = "Shotgun";
+        this.cost = 100;
+        this.transform.scale = .5;
+    }
+    get copy() { return new Shotgun(this.transform); }
+    Shoot()
+    {
+        let bullets = [];
+        for (let i = 0; i < this.upgrades.N.value; i++)
+            bullets.push(new FreeProjectile(5, 500, Vector2.angleVector(this.transform.rotation + (Math.random() - .5) * .4), 600, this.transform));
+        this.manager.AddEntities(...bullets);
+    }
+}
 class RocketLauncher extends CannonTurret
 {
     constructor(transform = new Transform())
@@ -1048,14 +1108,12 @@ class RocketLauncher extends CannonTurret
         this.name = "Lança Missel";
         this.cost = 100;
         this.transform.scale = .5;
+        this.evolutions = [new Shotgun()];
     }
     get copy() { return new RocketLauncher(this.transform); }
     get damage() { return this.upgrades.damage.value; }
     get aoe() { return this.upgrades.aoe.value; }
-    get info()
-    {
-        return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Area de Efeito: " + this.aoe);
-    }
+    get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Area de Efeito: " + this.aoe); }
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
@@ -1080,10 +1138,7 @@ class AntiAir extends CannonTurret
     get copy() { return new AntiAir(this.transform); }
     get damage() { return this.upgrades.damage.value; }
     get aoe() { return this.upgrades.aoe.value; }
-    get info()
-    {
-        return super.info.concat("Alvos: Aéreos", "Dano: " + this.damage, "Area de Efeito: " + this.aoe);
-    }
+    get info() { return super.info.concat("Alvos: Aéreos", "Dano: " + this.damage, "Area de Efeito: " + this.aoe); }
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
