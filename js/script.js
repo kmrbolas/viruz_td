@@ -350,9 +350,9 @@ let sprites =
     rocket_launcher: Sprite.CreateArray("imagens/turrets/rocket_launcher.png", "imagens/turrets/rocket_launcher_enabled.png", "imagens/turrets/rocket_launcher_disabled.png"),
     mini_gun: Sprite.CreateSheet("imagens/turrets/mini_gun_", 2, ".png"),
     base: Sprite.CreateArray("imagens/turrets/base.png", "imagens/turrets/base_enabled.png", "imagens/turrets/base_disabled.png"),
-    rocket: new Sprite("imagens/projectiles/rocket/0.png"),
-    bullet: new Sprite("imagens/projectiles/bullet/0.png"),
-    laser_beam: new Sprite("imagens/Projectiles/Laser/0.png"),
+    rocket: new Sprite("imagens/projectiles/rocket.png"),
+    bullet: new Sprite("imagens/projectiles/bullet.png"),
+    laser_beam: new Sprite("imagens/Projectiles/laser.png"),
     explosion: Sprite.CreateArray("imagens/effects/tile000.png", "imagens/effects/tile001.png", "imagens/effects/tile002.png", "imagens/effects/tile003.png","imagens/effects/tile004.png"),
     explosion_realistic: Sprite.CreateSheet("imagens/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("imagens/background/grass.jpg"),
@@ -736,45 +736,6 @@ class Projectile extends Entity
     }
 
 }
-class FreeProjectile extends Entity
-{
-    constructor(aoe, speed, direction, max_distance, transform = new Transform())
-    {
-        super(transform);
-        this.aoe = aoe;
-        this.speed = speed;
-        this.direction = direction;
-        this.max_distance = max_distance;
-        this.origin = transform.position;
-    }
-    get copy() { return new FreeProjectile(this.aoe, this.speed, this.main_target, this.transform); }
-    Update()
-    {
-        this.transform.position = this.direction.mult(this.speed * Time.deltaTime).add(this.transform.position);
-        this.transform.rotation = this.direction.angle;
-        if (Vector2.distance(this.origin, this.transform.position) > this.max_distance)
-            return this.Release();
-        let targets = this.manager.OverlapCircle(this.transform.position, 5 * this.speed * Time.deltaTime, e => { return e instanceof Enemy; });
-        if (targets.length > 0)
-        {
-            targets = this.manager.OverlapCircle(this.transform.position, this.aoe, e => { return e instanceof Enemy; });
-            targets = targets.sort((a, b) => { return a.transform.position.distance(this.transform.position) - b.transform.position.distance(this.transform.position); });
-            if (targets.length > 0)
-                this.OnHit(targets);
-            else
-                this.Release();
-        }
-    }
-    Render()
-    {
-        RenderRectangleFilled("#F00", this.transform.position, vec(25, 25));
-    }
-    OnHit(targets)
-    {
-        this.Release();
-    }
-
-}
 class Bullet extends Projectile
 {
     constructor(sprite, damage, chains_number, aoe, speed, target, transform = new Transform())
@@ -953,7 +914,7 @@ class LaserGun extends Turret
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
-        this.targets_in_range = this.targets_in_range.filter(e => { return 2 >= e.rank; });
+        this.targets_in_range.remove_if(e => { return 2 < e.rank; });
     }
     Shoot()
     {
@@ -991,7 +952,7 @@ class MiniGun extends Turret
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
-        this.targets_in_range = this.targets_in_range.filter(e => { return 2 <= e.rank; });
+        this.targets_in_range.remove_if(e => { return 2 > e.rank; });
     }
     Shoot()
     {
@@ -1031,7 +992,7 @@ class MachineGun extends Turret
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
-        this.targets_in_range = this.targets_in_range.filter(e => { return 2 >= e.rank; });
+        this.targets_in_range.remove_if(e => { return 2 < e.rank; });
     }
     Shoot()
     {
@@ -1082,38 +1043,46 @@ class Shotgun extends CannonTurret
 {
     constructor(transform = new Transform())
     {
-        super(sprites.rocket_launcher, 3, 180, transform);
+        super(sprites.rocket_launcher, 4, 200, transform);
+        this.fov = 1.3;
         this.upgrades.Alcance.max_level = 1;
-        this.upgrades.damage = new Upgrade(40, 4);
+        this.upgrades.Dano = new Upgrade(120, 4);
         this.upgrades.N = new Upgrade(4, 4, .5, 1);
         this.name = "Shotgun";
         this.cost = 100;
         this.transform.scale = .5;
     }
     get copy() { return new Shotgun(this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get N() { return this.upgrades.N.value; }
+    get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "N° de Balas: " + this.N); }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.filter(t => { return t.type == "Terrestre"; });
+    }
     Shoot()
     {
-        let bullets = [];
+        let t = this.transform.copy;
+        t.scale = 2;
         for (let i = 0; i < this.upgrades.N.value; i++)
-            bullets.push(new FreeProjectile(5, 500, Vector2.angleVector(this.transform.rotation + (Math.random() - .5) * .4), 600, this.transform));
-        this.manager.AddEntities(...bullets);
+            this.manager.AddEntity(new Bullet(sprites.bullet, this.damage, 0, 0, 800, this.targets[Math.round(Math.random() * (this.targets.length - 1))], t));
     }
 }
 class RocketLauncher extends CannonTurret
 {
     constructor(transform = new Transform())
     {
-        super(sprites.rocket_launcher, 2.5, 120, transform);
-        this.upgrades.damage = new Upgrade(40, 4);
-        this.upgrades.aoe = new Upgrade(60, 4);
+        super(sprites.rocket_launcher, 2.5, 200, transform);
+        this.upgrades.Dano = new Upgrade(40, 4);
         this.name = "Lança Missel";
         this.cost = 100;
         this.transform.scale = .5;
         this.evolutions = [new Shotgun()];
+        this.aoe = 70;
     }
     get copy() { return new RocketLauncher(this.transform); }
-    get damage() { return this.upgrades.damage.value; }
-    get aoe() { return this.upgrades.aoe.value; }
+    get damage() { return this.upgrades.Dano.value; }
     get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Area de Efeito: " + this.aoe); }
     UpdateTargetsInRange()
     {
@@ -1244,9 +1213,9 @@ let paths =
 
 let waves =
 [
-    [wave(10), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
-    [wave(10), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
-    [wave(10), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
+    [wave(20), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
+    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
+    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
 ];
 
 let maps =
