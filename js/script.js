@@ -172,7 +172,7 @@ function RenderTextArray(top_pos, size, texts)
         RenderText(center, text, size.x);
     }
 }
-function SetProperty(o, name, get, set = undefined)
+function AddProperty(o, name, get, set = undefined)
 {
     Object.defineProperty(o, name, {
         get: get,
@@ -322,42 +322,42 @@ let sprites =
 {
     spider:
     [
-        Sprite.CreateSheet("images/enemies/spider_d_", 4, ".png"),
-        Sprite.CreateSheet("images/enemies/spider_c_", 4, ".png"),
-        Sprite.CreateSheet("images/enemies/spider_b_", 4, ".png"),
-        Sprite.CreateSheet("images/enemies/spider_a_", 4, ".png"),
-        Sprite.CreateArray("images/enemies/spider_d_0.png", "images/enemies/spider_c_1.png", "images/enemies/spider_b_0.png", "images/enemies/spider_a_1.png")
+        Sprite.CreateSheet("imagens/enemies/spider_d_", 4, ".png"),
+        Sprite.CreateSheet("imagens/enemies/spider_c_", 4, ".png"),
+        Sprite.CreateSheet("imagens/enemies/spider_b_", 4, ".png"),
+        Sprite.CreateSheet("imagens/enemies/spider_a_", 4, ".png"),
+        Sprite.CreateArray("imagens/enemies/spider_d_0.png", "imagens/enemies/spider_c_1.png", "imagens/enemies/spider_b_0.png", "imagens/enemies/spider_a_1.png")
     ],
     beetle:
     [
-        Sprite.CreateSheet("images/enemies/beetle_d_", 2, ".png"),
-        Sprite.CreateSheet("images/enemies/beetle_c_", 2, ".png"),
-        Sprite.CreateSheet("images/enemies/beetle_b_", 2, ".png"),
-        Sprite.CreateSheet("images/enemies/beetle_a_", 2, ".png"),
-        Sprite.CreateArray("images/enemies/beetle_d_0.png", "images/enemies/beetle_c_1.png", "images/enemies/beetle_b_0.png", "images/enemies/beetle_a_1.png")
+        Sprite.CreateSheet("imagens/enemies/beetle_d_", 2, ".png"),
+        Sprite.CreateSheet("imagens/enemies/beetle_c_", 2, ".png"),
+        Sprite.CreateSheet("imagens/enemies/beetle_b_", 2, ".png"),
+        Sprite.CreateSheet("imagens/enemies/beetle_a_", 2, ".png"),
+        Sprite.CreateArray("imagens/enemies/beetle_d_0.png", "imagens/enemies/beetle_c_1.png", "imagens/enemies/beetle_b_0.png", "imagens/enemies/beetle_a_1.png")
     ],
     wasp:
     [
-        Sprite.CreateSheet("images/enemies/wasp_d_", 5, ".png"),
-        Sprite.CreateSheet("images/enemies/wasp_c_", 5, ".png"),
-        Sprite.CreateSheet("images/enemies/wasp_b_", 5, ".png"),
-        Sprite.CreateSheet("images/enemies/wasp_a_", 5, ".png"),
-        Sprite.CreateArray("images/enemies/wasp_d_0.png", "images/enemies/wasp_c_1.png", "images/enemies/wasp_b_2.png", "images/enemies/wasp_a_3.png", "images/enemies/wasp_a_4.png")
+        Sprite.CreateSheet("imagens/enemies/wasp_d_", 5, ".png"),
+        Sprite.CreateSheet("imagens/enemies/wasp_c_", 5, ".png"),
+        Sprite.CreateSheet("imagens/enemies/wasp_b_", 5, ".png"),
+        Sprite.CreateSheet("imagens/enemies/wasp_a_", 5, ".png"),
+        Sprite.CreateArray("imagens/enemies/wasp_d_0.png", "imagens/enemies/wasp_c_1.png", "imagens/enemies/wasp_b_2.png", "imagens/enemies/wasp_a_3.png", "imagens/enemies/wasp_a_4.png")
     ],
-    machine_gun: Sprite.CreateArray("images/turrets/machine_gun_0.png", "images/turrets/machine_gun_1.png", "images/turrets/machine_gun_2.png", "images/turrets/machine_gun_enabled.png", "images/turrets/machine_gun_disabled.png"),
-    laser_gun: Sprite.CreateSheet("images/turrets/p_laser_gun_", 3, ".png"),
-    anti_air: Sprite.CreateArray("images/turrets/antiair.png", "images/turrets/antiair_enabled.png", "images/turrets/antiair_disabled.png"),
-    rocket_launcher: Sprite.CreateArray("images/turrets/rocket_launcher.png", "images/turrets/rocket_launcher_enabled.png", "images/turrets/rocket_launcher_disabled.png"),
-    mini_gun: Sprite.CreateSheet("images/turrets/mini_gun_", 2, ".png"),
-    base: Sprite.CreateArray("images/turrets/base.png", "images/turrets/base_enabled.png", "images/turrets/base_disabled.png"),
-    rocket: new Sprite("images/projectiles/rocket/0.png"),
-    bullet: new Sprite("images/projectiles/bullet/0.png"),
-    laser_beam: new Sprite("images/Projectiles/Laser/0.png"),
-    explosion: Sprite.CreateArray("images/effects/tile000.png", "images/effects/tile001.png", "images/effects/tile002.png", "images/effects/tile003.png","images/effects/tile004.png"),
-    explosion_realistic: Sprite.CreateSheet("images/effects/realexplosion/", 27, ".png"),
-    grass: new Sprite("images/background/grass.jpg"),
-    paths: Sprite.CreateSheet("images/background/Track", 4,".png"),
-    menu_background: new Sprite("images/background/menu.png"),
+    machine_gun: Sprite.CreateArray("imagens/turrets/machine_gun_0.png", "imagens/turrets/machine_gun_1.png", "imagens/turrets/machine_gun_2.png", "imagens/turrets/machine_gun_enabled.png", "imagens/turrets/machine_gun_disabled.png"),
+    laser_gun: Sprite.CreateSheet("imagens/turrets/p_laser_gun_", 3, ".png"),
+    anti_air: Sprite.CreateArray("imagens/turrets/antiair.png", "imagens/turrets/antiair_enabled.png", "imagens/turrets/antiair_disabled.png"),
+    rocket_launcher: Sprite.CreateArray("imagens/turrets/rocket_launcher.png", "imagens/turrets/rocket_launcher_enabled.png", "imagens/turrets/rocket_launcher_disabled.png"),
+    mini_gun: Sprite.CreateSheet("imagens/turrets/mini_gun_", 2, ".png"),
+    base: Sprite.CreateArray("imagens/turrets/base.png", "imagens/turrets/base_enabled.png", "imagens/turrets/base_disabled.png"),
+    rocket: new Sprite("imagens/projectiles/rocket/0.png"),
+    bullet: new Sprite("imagens/projectiles/bullet/0.png"),
+    laser_beam: new Sprite("imagens/Projectiles/Laser/0.png"),
+    explosion: Sprite.CreateArray("imagens/effects/tile000.png", "imagens/effects/tile001.png", "imagens/effects/tile002.png", "imagens/effects/tile003.png","imagens/effects/tile004.png"),
+    explosion_realistic: Sprite.CreateSheet("imagens/effects/realexplosion/", 27, ".png"),
+    grass: new Sprite("imagens/background/grass.jpg"),
+    paths: Sprite.CreateSheet("imagens/background/Track", 4,".png"),
+    menu_background: new Sprite("imagens/background/menu.png"),
 }
 class Entity extends Transformable
 {
@@ -662,7 +662,7 @@ class EnemyFactory
         e.name = this.name;
         e.rank = rank;
         e.gold = 3 * (rank + 1);
-        SetProperty(e, "info", function() {
+        AddProperty(e, "info", function() {
             return [this.name + "-" + (rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S"),
             "Vida: " + this.life + " de " + this.max_life,
             "Tipo: " + this.type,
@@ -708,6 +708,7 @@ class Projectile extends Entity
         this.aoe = aoe;
         this.speed = speed;
         this.main_target = main_target;
+        this.render_layer = 1;
     }
     get copy() { return new Projectile(this.aoe, this.speed, this.main_target, this.transform); }
     Update()
