@@ -322,42 +322,42 @@ let sprites =
 {
     spider:
     [
-        Sprite.CreateSheet("imagens/enemies/spider_d_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_c_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_b_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_a_", 4, ".png"),
-        Sprite.CreateArray("imagens/enemies/spider_d_0.png", "imagens/enemies/spider_c_1.png", "imagens/enemies/spider_b_0.png", "imagens/enemies/spider_a_1.png")
+        Sprite.CreateSheet("imagem/enemies/spider_d_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_c_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_b_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_a_", 4, ".png"),
+        Sprite.CreateArray("imagem/enemies/spider_d_0.png", "imagem/enemies/spider_c_1.png", "imagem/enemies/spider_b_0.png", "imagem/enemies/spider_a_1.png")
     ],
     beetle:
     [
-        Sprite.CreateSheet("imagens/enemies/beetle_d_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_c_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_b_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_a_", 2, ".png"),
-        Sprite.CreateArray("imagens/enemies/beetle_d_0.png", "imagens/enemies/beetle_c_1.png", "imagens/enemies/beetle_b_0.png", "imagens/enemies/beetle_a_1.png")
+        Sprite.CreateSheet("imagem/enemies/beetle_d_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_c_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_b_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_a_", 2, ".png"),
+        Sprite.CreateArray("imagem/enemies/beetle_d_0.png", "imagem/enemies/beetle_c_1.png", "imagem/enemies/beetle_b_0.png", "imagem/enemies/beetle_a_1.png")
     ],
     wasp:
     [
-        Sprite.CreateSheet("imagens/enemies/wasp_d_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_c_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_b_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_a_", 5, ".png"),
-        Sprite.CreateArray("imagens/enemies/wasp_d_0.png", "imagens/enemies/wasp_c_1.png", "imagens/enemies/wasp_b_2.png", "imagens/enemies/wasp_a_3.png", "imagens/enemies/wasp_a_4.png")
+        Sprite.CreateSheet("imagem/enemies/wasp_d_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_c_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_b_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_a_", 5, ".png"),
+        Sprite.CreateArray("imagem/enemies/wasp_d_0.png", "imagem/enemies/wasp_c_1.png", "imagem/enemies/wasp_b_2.png", "imagem/enemies/wasp_a_3.png", "imagem/enemies/wasp_a_4.png")
     ],
-    machine_gun: Sprite.CreateArray("imagens/turrets/machine_gun_0.png", "imagens/turrets/machine_gun_1.png", "imagens/turrets/machine_gun_2.png", "imagens/turrets/machine_gun_enabled.png", "imagens/turrets/machine_gun_disabled.png"),
-    laser_gun: Sprite.CreateSheet("imagens/turrets/p_laser_gun_", 3, ".png"),
-    anti_air: Sprite.CreateArray("imagens/turrets/antiair.png", "imagens/turrets/antiair_enabled.png", "imagens/turrets/antiair_disabled.png"),
-    rocket_launcher: Sprite.CreateArray("imagens/turrets/rocket_launcher.png", "imagens/turrets/rocket_launcher_enabled.png", "imagens/turrets/rocket_launcher_disabled.png"),
-    mini_gun: Sprite.CreateSheet("imagens/turrets/mini_gun_", 2, ".png"),
-    base: Sprite.CreateArray("imagens/turrets/base.png", "imagens/turrets/base_enabled.png", "imagens/turrets/base_disabled.png"),
-    rocket: new Sprite("imagens/projectiles/rocket.png"),
-    bullet: new Sprite("imagens/projectiles/bullet.png"),
-    laser_beam: new Sprite("imagens/Projectiles/laser.png"),
-    explosion: Sprite.CreateArray("imagens/effects/tile000.png", "imagens/effects/tile001.png", "imagens/effects/tile002.png", "imagens/effects/tile003.png","imagens/effects/tile004.png"),
-    explosion_realistic: Sprite.CreateSheet("imagens/effects/realexplosion/", 27, ".png"),
-    grass: new Sprite("imagens/background/grass.jpg"),
-    paths: Sprite.CreateSheet("imagens/background/Track", 4,".png"),
-    menu_background: new Sprite("imagens/background/menu.png"),
+    machine_gun: Sprite.CreateArray("imagem/turrets/machine_gun_0.png", "imagem/turrets/machine_gun_1.png", "imagem/turrets/machine_gun_2.png", "imagem/turrets/machine_gun_enabled.png", "imagem/turrets/machine_gun_disabled.png"),
+    laser_gun: Sprite.CreateSheet("imagem/turrets/p_laser_gun_", 3, ".png"),
+    anti_air: Sprite.CreateArray("imagem/turrets/antiair.png", "imagem/turrets/antiair_enabled.png", "imagem/turrets/antiair_disabled.png"),
+    rocket_launcher: Sprite.CreateArray("imagem/turrets/rocket_launcher.png", "imagem/turrets/rocket_launcher_enabled.png", "imagem/turrets/rocket_launcher_disabled.png"),
+    mini_gun: Sprite.CreateSheet("imagem/turrets/mini_gun_", 2, ".png"),
+    base: Sprite.CreateArray("imagem/turrets/base.png", "imagem/turrets/base_enabled.png", "imagem/turrets/base_disabled.png"),
+    rocket: new Sprite("imagem/projectiles/rocket.png"),
+    bullet: new Sprite("imagem/projectiles/bullet.png"),
+    laser_beam: new Sprite("imagem/Projectiles/laser.png"),
+    explosion: Sprite.CreateArray("imagem/effects/tile000.png", "imagem/effects/tile001.png", "imagem/effects/tile002.png", "imagem/effects/tile003.png","imagem/effects/tile004.png"),
+    explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
+    grass: new Sprite("imagem/background/grass.jpg"),
+    paths: Sprite.CreateSheet("imagem/background/Track", 4,".png"),
+    menu_background: new Sprite("imagem/background/menu.png"),
 }
 class Entity extends Transformable
 {
