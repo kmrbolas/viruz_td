@@ -322,27 +322,27 @@ let sprites =
 {
     spider:
     [
-        Sprite.CreateSheet("imagens/enemies/spider_d_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_c_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_b_", 4, ".png"),
-        Sprite.CreateSheet("imagens/enemies/spider_a_", 4, ".png"),
-        Sprite.CreateArray("imagens/enemies/spider_d_0.png", "imagens/enemies/spider_c_1.png", "imagens/enemies/spider_b_0.png", "imagens/enemies/spider_a_1.png")
+        Sprite.CreateSheet("imagem/enemies/spider_d_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_c_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_b_", 4, ".png"),
+        Sprite.CreateSheet("imagem/enemies/spider_a_", 4, ".png"),
+        Sprite.CreateArray("imagem/enemies/spider_d_0.png", "imagem/enemies/spider_c_1.png", "imagem/enemies/spider_b_0.png", "imagem/enemies/spider_a_1.png")
     ],
     beetle:
     [
-        Sprite.CreateSheet("imagens/enemies/beetle_d_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_c_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_b_", 2, ".png"),
-        Sprite.CreateSheet("imagens/enemies/beetle_a_", 2, ".png"),
-        Sprite.CreateArray("imagens/enemies/beetle_d_0.png", "imagens/enemies/beetle_c_1.png", "imagens/enemies/beetle_b_0.png", "imagens/enemies/beetle_a_1.png")
+        Sprite.CreateSheet("imagem/enemies/beetle_d_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_c_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_b_", 2, ".png"),
+        Sprite.CreateSheet("imagem/enemies/beetle_a_", 2, ".png"),
+        Sprite.CreateArray("imagem/enemies/beetle_d_0.png", "imagem/enemies/beetle_c_1.png", "imagem/enemies/beetle_b_0.png", "imagem/enemies/beetle_a_1.png")
     ],
     wasp:
     [
-        Sprite.CreateSheet("imagens/enemies/wasp_d_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_c_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_b_", 5, ".png"),
-        Sprite.CreateSheet("imagens/enemies/wasp_a_", 5, ".png"),
-        Sprite.CreateArray("imagens/enemies/wasp_d_0.png", "imagens/enemies/wasp_c_1.png", "imagens/enemies/wasp_b_2.png", "imagens/enemies/wasp_a_3.png", "imagens/enemies/wasp_a_4.png")
+        Sprite.CreateSheet("imagem/enemies/wasp_d_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_c_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_b_", 5, ".png"),
+        Sprite.CreateSheet("imagem/enemies/wasp_a_", 5, ".png"),
+        Sprite.CreateArray("imagem/enemies/wasp_d_0.png", "imagem/enemies/wasp_c_1.png", "imagem/enemies/wasp_b_2.png", "imagem/enemies/wasp_a_3.png", "imagem/enemies/wasp_a_4.png")
     ],
     machine_gun: Sprite.CreateArray("imagens/turrets/machine_gun_0.png", "imagens/turrets/machine_gun_1.png", "imagens/turrets/machine_gun_2.png", "imagens/turrets/machine_gun_enabled.png", "imagens/turrets/machine_gun_disabled.png"),
     laser_gun: Sprite.CreateSheet("imagens/turrets/p_laser_gun_", 3, ".png"),
