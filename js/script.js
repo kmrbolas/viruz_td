@@ -1131,7 +1131,7 @@ class ToxicLauncher extends CannonTurret
         this.transform.scale = .5;
         this.aoe = 50;
         this.remove_filter = e => { return e.type == "Aéreo"; };
-        this.cannon_scale = .9;
+        this.cannon_scale = 1;
     }
     get copy() { return new ToxicLauncher(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
