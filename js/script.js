@@ -1099,12 +1099,12 @@ class Shotgun extends CannonTurret
     constructor(transform = new Transform())
     {
         super([sprites.shotgun], 4, 200, transform);
-        this.fov = 1.3;
+        this.fov = 1.1;
         this.upgrades.Alcance.max_level = 1;
-        this.upgrades.Dano = new Upgrade(120, 4);
-        this.upgrades.N = new Upgrade(4, 4, .5, 1);
+        this.upgrades.Dano = new Upgrade(90, 4);
+        this.upgrades.N = new Upgrade(4, 3, .5, 1);
         this.name = "Shotgun";
-        this.cost = 100;
+        this.cost = 120;
         this.transform.scale = .5;
         this.remove_filter = e => { return e.type == "Aéreo"; };
     }
@@ -1116,8 +1116,9 @@ class Shotgun extends CannonTurret
     {
         let t = this.transform.copy;
         t.scale = 2;
-        for (let i = 0; i < this.upgrades.N.value; i++)
-            this.manager.AddEntity(new Bullet(sprites.bullet, this.damage, 0, 0, 800, this.targets[Math.round(Math.random() * (this.targets.length - 1))], t));
+        
+        for (let i = 0; i < this.targets.length && i < this.N; i++)
+            this.manager.AddEntity(new Bullet(sprites.bullet, this.damage, 0, 0, 800, this.targets[i], t));
     }
 }
 class ToxicLauncher extends CannonTurret
@@ -1128,11 +1129,10 @@ class ToxicLauncher extends CannonTurret
         this.upgrades.Dano = new Upgrade(120, 5);
         this.upgrades.Duração = new Upgrade(2, 3, .5);
         this.name = "Lança Tóxicos";
-        this.cost = 100;
+        this.cost = 120;
         this.transform.scale = .5;
         this.aoe = 50;
         this.remove_filter = e => { return e.type == "Aéreo"; };
-        this.cannon_scale = 1;
     }
     get copy() { return new ToxicLauncher(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
@@ -1180,20 +1180,19 @@ class AntiAir extends CannonTurret
     constructor(transform = new Transform())
     {
         super(sprites.anti_air, 3.5, 200, transform);
-        this.upgrades.damage = new Upgrade(40, 4);
-        this.upgrades.aoe = new Upgrade(70, 4);
+        this.upgrades.Dano = new Upgrade(40, 4);
         this.name = "Anti-Aéreo";
         this.cost = 120;
         this.transform.scale = .5;
+        this.aoe = 70;
         this.remove_filter = e => { return e.type == "Terrestre"; };
     }
     get copy() { return new AntiAir(this.transform); }
-    get damage() { return this.upgrades.damage.value; }
-    get aoe() { return this.upgrades.aoe.value; }
+    get damage() { return this.upgrades.Dano.value; }
     get info() { return super.info.concat("Alvos: Aéreos", "Dano: " + this.damage, "Area de Efeito: " + this.aoe); }
     Shoot()
     {
-        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.upgrades.damage.value, this.upgrades.aoe.value, 350, this.target, this.transform));
+        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.damage, this.aoe, 350, this.target, this.transform));
     }
 }
 let turrets =
