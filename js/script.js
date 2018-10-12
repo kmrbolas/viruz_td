@@ -359,6 +359,7 @@ let sprites =
     grass: new Sprite("imagem/background/grass.jpg"),
     paths: Sprite.CreateSheet("imagem/background/Track", 4,".png"),
     menu_background: new Sprite("imagem/background/menu.png"),
+    tutorial: Sprite.CreateSheet("imagem/tutorial/tut", 2, ".jpg"),
 }
 class Entity extends Transformable
 {
@@ -1044,7 +1045,7 @@ class Shotgun extends CannonTurret
         this.name = "Shotgun";
         this.cost = 100;
         this.transform.scale = .5;
-        this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.remove_filter = e => { return e.type == "Aéreo"; };
     }
     get copy() { return new Shotgun(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
@@ -1069,14 +1070,14 @@ class RocketLauncher extends CannonTurret
         this.transform.scale = .5;
         this.evolutions = [new Shotgun()];
         this.aoe = 70;
-        this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.remove_filter = e => { return e.type == "Aéreo"; };
     }
     get copy() { return new RocketLauncher(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
     get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Area de Efeito: " + this.aoe); }
     Shoot()
     {
-        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.upgrades.damage.value, this.upgrades.aoe.value, 500, this.target, this.transform));
+        this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.damage, this.aoe, 500, this.target, this.transform));
     }
 }
 class AntiAir extends CannonTurret
@@ -1089,7 +1090,7 @@ class AntiAir extends CannonTurret
         this.name = "Anti-Aéreo";
         this.cost = 120;
         this.transform.scale = .5;
-        this.remove_filter = e => { return e.type == "Aéreo"; };
+        this.remove_filter = e => { return e.type == "Terrestre"; };
     }
     get copy() { return new AntiAir(this.transform); }
     get damage() { return this.upgrades.damage.value; }
@@ -1368,6 +1369,7 @@ let gui =
     }
 };
 
+let tut_index = 0;
 function RenderStartMenu()
 {
     sprites.menu_background.Render();
@@ -1380,7 +1382,10 @@ function RenderStartMenu()
     }
     pos = vec(canvas.clientWidth * .5, canvas.clientHeight * .6).sub(size.div(2));
     if (Button(pos, size, "Instruções"))
+    {
         game_state = 5;
+        tut_index = 0;
+    }
 }
 
 function RenderGameOver()
@@ -1421,27 +1426,21 @@ function RenderCredits()
 
 }
 
-let tut_index = 0;
 function RenderTutorial()
 {
     let size = vec(100, 50);
-    switch(tut_index)
+    sprites.tutorial[tut_index].Render();
+    if (tut_index < sprites.tutorial.length - 1)
     {
-        case 0:
-        {
-            let pos = vec(canvas.clientWidth * .65, canvas.clientHeight * .9).sub(size.div(2));
-            if (Button(pos, size, "Próximo"))
-                tut_index++;
-        }break;
-        case 1:
-        {
-            let pos = vec(canvas.clientWidth * .35, canvas.clientHeight * .9).sub(size.div(2));
-            if (Button(pos, size, "Anterior"))
-                tut_index--;
-            // pos = vec(canvas.clientWidth * .65, canvas.clientHeight * .9).sub(size.div(2));
-            // if (Button(pos, size, "Próximo"))
-            //     tut_index++;
-        }break;
+        let pos = vec(canvas.clientWidth * .65, canvas.clientHeight * .9).sub(size.div(2));
+        if (Button(pos, size, "Próximo"))
+            tut_index++;
+    }
+    if (tut_index > 0)
+    {
+        let pos = vec(canvas.clientWidth * .35, canvas.clientHeight * .9).sub(size.div(2));
+        if (Button(pos, size, "Anterior"))
+            tut_index--;
     }
     let pos = vec(canvas.clientWidth * .5, canvas.clientHeight * .9).sub(size.div(2));
     if (Button(pos, size, "Menu"))
@@ -1452,6 +1451,7 @@ function Start()
 {
     sprites.grass.top_position = vec(0, 0);
     sprites.paths.forEach(b => { b.top_position = vec(0, 0); });
+    sprites.tutorial.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
     manager.map = maps[0];
 }
