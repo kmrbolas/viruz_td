@@ -350,8 +350,10 @@ let sprites =
     rocket_launcher: Sprite.CreateArray("imagem/turrets/rocket_launcher.png", "imagem/turrets/rocket_launcher_enabled.png", "imagem/turrets/rocket_launcher_disabled.png"),
     mini_gun: Sprite.CreateSheet("imagem/turrets/mini_gun_", 2, ".png"),
     shotgun: new Sprite("imagem/turrets/shotgun.png"),
+    toxic_launcher: new Sprite("imagem/turrets/toxic_launcher.png"),
     base: Sprite.CreateArray("imagem/turrets/base.png", "imagem/turrets/base_enabled.png", "imagem/turrets/base_disabled.png"),
     rocket: new Sprite("imagem/projectiles/rocket.png"),
+    toxic_rocket: new Sprite("imagem/projectiles/toxic_rocket.png"),
     bullet: new Sprite("imagem/projectiles/bullet.png"),
     laser_beam: new Sprite("imagem/Projectiles/laser.png"),
     explosion: Sprite.CreateArray("imagem/effects/tile000.png", "imagem/effects/tile001.png", "imagem/effects/tile002.png", "imagem/effects/tile003.png","imagem/effects/tile004.png"),
@@ -359,7 +361,7 @@ let sprites =
     grass: new Sprite("imagem/background/grass.jpg"),
     paths: Sprite.CreateSheet("imagem/background/Track", 4,".png"),
     menu_background: new Sprite("imagem/background/menu.png"),
-    tutorial: Sprite.CreateSheet("imagem/tutorial/tut", 2, ".jpg"),
+    tutorial: Sprite.CreateSheet("imagem/tutorial/tut", 3, ".png"),
 }
 class Entity extends Transformable
 {
@@ -440,7 +442,7 @@ class Animation extends Entity
         this.times_to_play = times_to_play;
         this.opacity = opacity;
         this.timer = new Timer(1 / frame_rate, this.OnTimerTick.bind(this));
-        this.render_layer = 1;
+        this.render_layer = 2;
     }
     get copy() { return new Animation(this.frame_rate, this.sprites, this.transform); }
     get frame_rate() { return this.timer.frequency; }
@@ -790,6 +792,60 @@ class Rocket extends Projectile
         this.Release();
     }
 }
+class ToxicCloud extends Entity
+{
+    constructor(radius, damage, duration, transform = new Transform())
+    {
+        super(transform);
+        this.render_layer = 3;
+        this.radius = radius;
+        this.damage = damage;
+        this.duration = duration;
+        this.elapsed = 0;
+        this.circles = [];
+        for (let i = 0; i < 30; i++)
+        {
+            let radius = (Math.random() * .6 + .4) * this.radius * .7;
+            let offset = this.radius - radius;
+            this.circles.push({
+                radius: radius,
+                offset: offset,
+                angle: Math.random() * 2 * Math.PI,
+                vel: Math.random() - .5,
+                alpha_vel: Math.random() * .2 + .05,
+                alpha: Math.random() * .4 + .2,
+            });
+        }
+        this.remove_filter = null;
+    }
+    Update()
+    {
+        this.circles.forEach(c => {
+            c.angle += c.vel * Time.deltaTime;
+            c.alpha += c.alpha_vel * Time.deltaTime;
+            if (c.alpha < .2 || c.alpha > .6) c.alpha_vel = -c.alpha_vel;
+        });
+        let enemies = this.manager.OverlapCircle(this.transform.position, this.radius, e => { return e instanceof Enemy; });
+        if (this.remove_filter) enemies.remove_if(e => { return this.remove_filter(e); });
+        enemies.forEach(e => { e.life -= this.damage * Time.deltaTime; });
+        this.elapsed += Time.deltaTime;
+        if (this.elapsed > this.duration)
+            this.Release();
+    }
+    Render()
+    {
+        this.circles.forEach(c => {
+            let pos = this.transform.position.add(Vector2.angleVector(c.angle).mult(c.offset));
+            context.globalAlpha = c.alpha;
+            let grd = context.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, c.radius);
+            grd.addColorStop(0,"#7df442");
+            grd.addColorStop(1,"transparent");
+            let style = grd;
+            RenderCircleFilled(pos, c.radius, style);
+        });
+        context.globalAlpha = 1;
+    }
+}
 class Upgrade
 {
     constructor(base_value, max_level, scale = .25, level = 1)
@@ -921,7 +977,9 @@ class LaserGun extends Turret
     Shoot()
     {
         this.left = !this.left;
-        this.manager.AddEntity(new Bullet(this.bullet_sprite, this.damage, this.chains, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation, this.transform.scale)));
+        let bullet = new Bullet(this.bullet_sprite, this.damage, this.chains, this.bullet_aoe, this.bullet_speed, this.target, trans(this.bullet_position, this.transform.rotation, this.transform.scale));
+        bullet.remove_filter = this.remove_filter;
+        this.manager.AddEntity(bullet);
     }
     Render()
     {
@@ -1014,12 +1072,14 @@ class CannonTurret extends Turret
     {
         super(fire_rate, base_range, transform);
         this.cannon_sprites = cannon_sprites;
+        this.cannon_scale = 1;
     }
     Render()
     {
         super.Render();
         let sprite = this.cannon_sprites[0];
         sprite.transform = this.transform;
+        sprite.transform.scale *= this.cannon_scale;
         if (this.targets.length > 0)
             sprite.transform.position = this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(((this.timer.delay - this.timer.to_tick) / this.timer.delay) * 10 * this.transform.scale));
         sprite.Render();
@@ -1059,16 +1119,49 @@ class Shotgun extends CannonTurret
             this.manager.AddEntity(new Bullet(sprites.bullet, this.damage, 0, 0, 800, this.targets[Math.round(Math.random() * (this.targets.length - 1))], t));
     }
 }
+class ToxicLauncher extends CannonTurret
+{
+    constructor(transform = new Transform())
+    {
+        super([sprites.toxic_launcher], 1.5, 200, transform);
+        this.upgrades.Dano = new Upgrade(120, 5);
+        this.upgrades.Duração = new Upgrade(2, 3, .5);
+        this.name = "Lança Tóxicos";
+        this.cost = 100;
+        this.transform.scale = .5;
+        this.aoe = 50;
+        this.remove_filter = e => { return e.type == "Aéreo"; };
+        this.cannon_scale = .9;
+    }
+    get copy() { return new ToxicLauncher(this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get duration() { return this.upgrades.Duração.value; }
+    get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Duração: " + this.duration, "Area de Efeito: " + this.aoe); }
+    Shoot()
+    {
+        let rocket = new Rocket(sprites.toxic_rocket, null, this.damage, this.aoe, 500, this.target, this.transform);
+        rocket.duration = this.duration;
+        let d = this;
+        rocket.OnHit = function()
+        {
+            let cloud = new ToxicCloud(this.aoe, this.damage, this.duration, this.transform);
+            cloud.remove_filter = d.remove_filter;
+            this.manager.AddEntity(cloud);
+            this.Release();
+        }
+        this.manager.AddEntity(rocket);
+    }
+}
 class RocketLauncher extends CannonTurret
 {
     constructor(transform = new Transform())
     {
         super(sprites.rocket_launcher, 2.5, 200, transform);
         this.upgrades.Dano = new Upgrade(40, 4);
-        this.name = "Lança Missel";
+        this.name = "Lança Mísseis";
         this.cost = 100;
         this.transform.scale = .5;
-        this.evolutions = [new Shotgun()];
+        this.evolutions = [new Shotgun(), new ToxicLauncher()];
         this.aoe = 70;
         this.remove_filter = e => { return e.type == "Aéreo"; };
     }
@@ -1454,6 +1547,8 @@ function Start()
     sprites.tutorial.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
     manager.map = maps[0];
+
+    manager.AddEntity(new ToxicCloud(10, trans(vec(50, 50))));
 }
 
 function Update()
