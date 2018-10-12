@@ -818,6 +818,7 @@ class ToxicCloud extends Entity
         }
         this.remove_filter = null;
     }
+    get percent() { return (this.duration - this.elapsed) / this.duration; }
     Update()
     {
         this.circles.forEach(c => {
@@ -827,7 +828,7 @@ class ToxicCloud extends Entity
         });
         let enemies = this.manager.OverlapCircle(this.transform.position, this.radius, e => { return e instanceof Enemy; });
         if (this.remove_filter) enemies.remove_if(e => { return this.remove_filter(e); });
-        enemies.forEach(e => { e.life -= this.damage * Time.deltaTime; });
+        enemies.forEach(e => { e.life -= this.damage * this.percent * Time.deltaTime; });
         this.elapsed += Time.deltaTime;
         if (this.elapsed > this.duration)
             this.Release();
@@ -836,7 +837,7 @@ class ToxicCloud extends Entity
     {
         this.circles.forEach(c => {
             let pos = this.transform.position.add(Vector2.angleVector(c.angle).mult(c.offset));
-            context.globalAlpha = c.alpha;
+            context.globalAlpha = c.alpha * this.percent;
             let grd = context.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, c.radius);
             grd.addColorStop(0,"#7df442");
             grd.addColorStop(1,"transparent");
@@ -1136,7 +1137,7 @@ class ToxicLauncher extends CannonTurret
     get copy() { return new ToxicLauncher(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
     get duration() { return this.upgrades.Duração.value; }
-    get info() { return super.info.concat("Alvos: Terrestres", "Dano: " + this.damage, "Duração: " + this.duration, "Area de Efeito: " + this.aoe); }
+    get info() { return super.info.concat("Alvos: Terrestres", "Dano Inicial: " + this.damage, "Duração: " + this.duration + " Segundos", "Area de Efeito: " + this.aoe); }
     Shoot()
     {
         let rocket = new Rocket(sprites.toxic_rocket, null, this.damage, this.aoe, 500, this.target, this.transform);
@@ -1149,6 +1150,7 @@ class ToxicLauncher extends CannonTurret
             this.manager.AddEntity(cloud);
             this.Release();
         }
+        rocket.transform.scale = 1;
         this.manager.AddEntity(rocket);
     }
 }
