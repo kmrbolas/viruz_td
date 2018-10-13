@@ -1,0 +1,91 @@
+.scrollspySite {
+    position: relative;
+    overflow: auto;
+    height: 280px;   
+}
+.background {
+    background: black url("http://www.ninha.bio.br/biologia/mamiferos/musaranho/musaranho.jpg") repeat right top;
+    padding: 0;
+    margin: 0;
+}
+.container1 {
+    padding: 30px;
+    margin: 0 auto;
+    margin-bottom: 1%;
+    padding: 25px;
+    background: whitesmoke;
+    text-align: center;
+    max-width: 1100px;
+    color: black;
+    border: solid 1px black;
+    box-shadow: 0px 0px 40px 10px white;
+}
+.img-grupo{
+    box-shadow: 0 0 2px 1px black;
+    width: 200px;
+    height: 150px;
+}
+.container footer{
+    padding-top: 50px;
+    margin: 0 auto;
+    clear: both;
+}
+.frase{
+    padding-top: 50px;
+    margin: 0 auto;
+}
+.carousel{
+    box-shadow: 0 0 2px 1px black;
+    max-width: 500px;
+    margin: 0 auto;
+}
+.carousel-inner img{
+    margin: auto;
+}
+.img-fluid{
+    box-shadow: 0 0 2px 1px black;
+    
+}
+.rob{
+    box-shadow: 0 0 2px 1px black;
+    width: 622px;
+    height: 400px;
+    margin: 0 auto;
+}
+.embed-responsive {
+    box-shadow: 0 0 2px 1px black;
+}
+.video1{
+    float: left;
+}
+.game-canvas{
+    margin: 0 auto;
+    border: #000000 solid 2px;
+    border-radius: 10px;
+    padding: 0;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.2);
+}
+.navbar{
+    background-color: black;
+}
+.perfil-moldura{
+    margin: 15px;
+    text-align: center;
+    border-radius: 1%;
+    border: solid 1px black;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.2);
+    min-height: 290px;
+}
+.perfil-moldura div{
+    justify-content: center;
+    align-self: center;
+}
+.foto-perfil{
+    margin: 15px 0;
+    padding: 0;
+    border: solid 1px black;
+    border-radius: 8%;
+}
+.foto-perfil:hover{
+    box-shadow: 0 0 2px 1px black;
+}

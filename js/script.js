@@ -1467,14 +1467,14 @@ let tut_index = 0;
 function RenderStartMenu()
 {
     sprites.menu_background.Render();
-    let size = vec(100, 50);
-    let pos = vec(canvas.clientWidth * .5, canvas.clientHeight * .5).sub(size.div(2));
+    let size = vec(canvas.width * .1, canvas.height * .08);
+    let pos = vec(canvas.width * .5, canvas.height * .5).sub(size.div(2));
     if (Button(pos, size, "Jogar"))
     {
         manager.map = maps[0];
         game_state = 2;
     }
-    pos = vec(canvas.clientWidth * .5, canvas.clientHeight * .6).sub(size.div(2));
+    pos = vec(canvas.width * .5, canvas.height * .6).sub(size.div(2));
     if (Button(pos, size, "Instruções"))
     {
         game_state = 5;
@@ -1484,8 +1484,8 @@ function RenderStartMenu()
 
 function RenderGameOver()
 {
-    let size = vec(150, 50);
-    let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
+    let size = vec(canvas.width * .15, canvas.height * .08);
+    let pos = vec(canvas.width / 2, canvas.height / 2).sub(size.div(2));
     if (Button(pos, size, "Tentar Novamente"))
     {
         manager.Reset();
@@ -1497,8 +1497,8 @@ function RenderGameOver()
 
 function RenderScore()
 {
-    let size = vec(100, 50);
-    let pos = vec(canvas.clientWidth / 2, canvas.clientHeight / 2).sub(size.div(2));
+    let size = vec(canvas.width * .1, canvas.height * .08);
+    let pos = vec(canvas.width / 2, canvas.height / 2).sub(size.div(2));
     if (Button(pos, size, "Continuar"))
     {
         if (++map_index == maps.length)
@@ -1522,21 +1522,21 @@ function RenderCredits()
 
 function RenderTutorial()
 {
-    let size = vec(100, 50);
+    let size = vec(canvas.width * .1, canvas.height * .08);
     sprites.tutorial[tut_index].Render();
     if (tut_index < sprites.tutorial.length - 1)
     {
-        let pos = vec(canvas.clientWidth * .65, canvas.clientHeight * .9).sub(size.div(2));
+        let pos = vec(canvas.width * .65, canvas.height * .9).sub(size.div(2));
         if (Button(pos, size, "Próximo"))
             tut_index++;
     }
     if (tut_index > 0)
     {
-        let pos = vec(canvas.clientWidth * .35, canvas.clientHeight * .9).sub(size.div(2));
+        let pos = vec(canvas.width * .35, canvas.height * .9).sub(size.div(2));
         if (Button(pos, size, "Anterior"))
             tut_index--;
     }
-    let pos = vec(canvas.clientWidth * .5, canvas.clientHeight * .9).sub(size.div(2));
+    let pos = vec(canvas.width * .5, canvas.height * .9).sub(size.div(2));
     if (Button(pos, size, "Menu"))
         game_state = 0;
 }
@@ -1592,6 +1592,7 @@ function Render()
         RenderTutorial();
         break;
     }
+    // RenderCircle(Input.mousePos, 5, "#F00", "#000", 1);
 }
 
 let lastRender = 0;
@@ -1607,19 +1608,37 @@ function loop(elapsed)
     window.requestAnimationFrame(loop);
 }
 
-canvas.addEventListener("click", e => { Input.mouseClick = true; });
+function handleClick(e)
+{
+    e.preventDefault();
+    Input.mouseClick = true;
+}
+canvas.addEventListener("click", handleClick);
+canvas.addEventListener("touchend", handleClick);
 canvas.addEventListener("mousemove", e =>
 {
+    e.preventDefault();
+    Input.mouseClick = false;
+    let mouseX = e.offsetX * canvas.width / canvas.clientWidth | 0;
+    let mouseY = e.offsetY * canvas.height / canvas.clientHeight | 0;
+    Input.mousePos = vec(mouseX, mouseY);
+});
+function handleTouchMove(e)
+{
+    e.preventDefault();
+    let touches = e.changedTouches;
+    if (touches.length > 1)
+        return;
+    const touch = touches[0];
     let rect = canvas.getBoundingClientRect();
-    Input.mousePos = vec(e.clientX - rect.left, e.clientY - rect.top);
-});
-
-document.addEventListener("keydown", e => {
-    Input.keyDown[e.which] = true;
-});
-document.addEventListener("keyup", e => {
-    Input.keyDown[e.which] = false;
-});
+    let mouseX = (touch.clientX - rect.left) * canvas.width / canvas.clientWidth | 0;
+    let mouseY = (touch.clientY - rect.top) * canvas.height / canvas.clientHeight | 0;
+    Input.mousePos = vec(mouseX, mouseY);
+}
+canvas.addEventListener("touchstart", handleTouchMove);
+canvas.addEventListener("touchmove", handleTouchMove);
+document.addEventListener("keydown", e => { Input.keyDown[e.which] = true; });
+document.addEventListener("keyup", e => { Input.keyDown[e.which] = false; });
 
 window.onload = function()
 {
