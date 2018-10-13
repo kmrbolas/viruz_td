@@ -355,7 +355,7 @@ let sprites =
     rocket: new Sprite("imagem/projectiles/rocket.png"),
     toxic_rocket: new Sprite("imagem/projectiles/toxic_rocket.png"),
     bullet: new Sprite("imagem/projectiles/bullet.png"),
-    laser_beam: new Sprite("imagem/Projectiles/laser.png"),
+    laser_beam: new Sprite("imagem/projectiles/laser.png"),
     explosion: Sprite.CreateArray("imagem/effects/tile000.png", "imagem/effects/tile001.png", "imagem/effects/tile002.png", "imagem/effects/tile003.png","imagem/effects/tile004.png"),
     explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("imagem/background/grass.jpg"),
