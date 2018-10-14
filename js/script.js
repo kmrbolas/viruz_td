@@ -99,6 +99,10 @@ function MinDistanceFromPointToLine(v1, v2, point)
     let AC = Vector2.sub(point, v1);
     return Math.abs(Vector2.cross(AC, AB) / AB.magnitude);
 }
+function IsInsideLine(point, a, b, aprox = .1)
+{
+    return Math.abs(point.distance(a) + point.distance(b) - Vector2.distance(a, b)) <= aprox;
+}
 function IntersectLines(a, b, c, d)
 {
     const r = Vector2.sub(b, a);
@@ -356,7 +360,7 @@ let sprites =
     toxic_rocket: new Sprite("imagem/projectiles/toxic_rocket.png"),
     bullet: new Sprite("imagem/projectiles/bullet.png"),
     laser_beam: new Sprite("imagem/projectiles/laser.png"),
-    explosion: Sprite.CreateArray("imagem/effects/tile000.png", "imagem/effects/tile001.png", "imagem/effects/tile002.png", "imagem/effects/tile003.png","imagem/effects/tile004.png"),
+    explosion: Sprite.CreateSheet("imagem/effects/tile00", 5, ".png"),
     explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("imagem/background/grass.jpg"),
     paths: Sprite.CreateSheet("imagem/background/Track", 4,".png"),
@@ -800,8 +804,7 @@ class ToxicCloud extends Entity
         this.render_layer = 3;
         this.radius = radius;
         this.damage = damage;
-        this.duration = duration;
-        this.elapsed = 0;
+        this.timer = new Timer(duration, () => { this.Release(); });
         this.circles = [];
         for (let i = 0; i < 30; i++)
         {
@@ -818,9 +821,10 @@ class ToxicCloud extends Entity
         }
         this.remove_filter = null;
     }
-    get percent() { return (this.duration - this.elapsed) / this.duration; }
+    get percent() { return this.timer.to_tick / this.timer.delay; }
     Update()
     {
+        this.timer.Update();
         this.circles.forEach(c => {
             c.angle += c.vel * Time.deltaTime;
             c.alpha += c.alpha_vel * Time.deltaTime;
@@ -829,9 +833,6 @@ class ToxicCloud extends Entity
         let enemies = this.manager.OverlapCircle(this.transform.position, this.radius, e => { return e instanceof Enemy; });
         if (this.remove_filter) enemies.remove_if(e => { return this.remove_filter(e); });
         enemies.forEach(e => { e.life -= this.damage * this.percent * Time.deltaTime; });
-        this.elapsed += Time.deltaTime;
-        if (this.elapsed > this.duration)
-            this.Release();
     }
     Render()
     {
@@ -844,6 +845,34 @@ class ToxicCloud extends Entity
             let style = grd;
             RenderCircleFilled(pos, c.radius, style);
         });
+        context.globalAlpha = 1;
+    }
+}
+class BulletTrail extends Entity
+{
+    constructor(radius, duration, start, end)
+    {
+        super(new Transform);
+        this.start = start;
+        this.end = end;
+        this.radius = radius;
+        this.render_layer = 6;
+        this.lines_number = 10;
+        this.timer = new Timer(duration, () => { this.Release(); });
+    }
+    get percent() { return this.timer.to_tick / this.timer.delay; }
+    Update()
+    {
+        this.timer.Update();
+    }
+    Render()
+    {
+        let r = this.radius / this.lines_number;
+        for (let i = 0; i < this.lines_number; i++)
+        {
+            context.globalAlpha = (1 / (this.lines_number - i)) * this.percent;
+            RenderLines("white", this.radius - i * r, this.start, this.end);
+        }
         context.globalAlpha = 1;
     }
 }
@@ -881,6 +910,7 @@ class Turret extends Entity
         this.cost = 0;
         this.evolutions = [];
         this.remove_filter = null;
+        this.turn_speed = 10;
     }
     get copy() { return new Turret(this.fire_rate, this.range, this.transform); }
     get range() { return this.upgrades.Alcance.value; }
@@ -904,7 +934,7 @@ class Turret extends Entity
     }
     UpdateRotation()
     {
-        this.transform.FaceTo(this.targets_in_range[0].transform.position, 10 * Time.deltaTime);
+        this.transform.FaceTo(this.targets_in_range[0].transform.position, this.turn_speed * Time.deltaTime);
     }
     Update()
     {
@@ -1074,7 +1104,9 @@ class CannonTurret extends Turret
         super(fire_rate, base_range, transform);
         this.cannon_sprites = cannon_sprites;
         this.cannon_scale = 1;
+        this.cannon_size = 0;
     }
+    get bullet_origin() { return this.transform.position.add(Vector2.angleVector(this.transform.rotation).mult(this.cannon_size)); }
     Render()
     {
         super.Render();
@@ -1175,6 +1207,41 @@ class RocketLauncher extends CannonTurret
         this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.damage, this.aoe, 500, this.target, this.transform));
     }
 }
+class Sniper extends CannonTurret
+{
+    constructor(transform = new Transform())
+    {
+        super(sprites.anti_air, 1, 200, transform);
+        this.upgrades.Alcance = new Upgrade(9000, 1);
+        this.upgrades.Dano = new Upgrade(150, 5);
+        this.name = "Sniper";
+        this.cost = 120;
+        this.transform.scale = .5;
+        this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.fov = .1;
+        this.turn_speed = 30;
+        this.cannon_size = 30;
+    }
+    get copy() { return new Sniper(this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get info() { return super.info.concat("Alvos: Aéreos", "Dano: " + this.damage); }
+    UpdateTargetsInRange()
+    {
+        super.UpdateTargetsInRange();
+        this.targets_in_range = this.targets_in_range.sort((a, b) => { 
+            return b.transform.position.distance(this.transform.position) - a.transform.position.distance(this.transform.position);
+         });
+    }
+    Shoot()
+    {
+        let end = Vector2.angleVector(this.transform.rotation).mult(this.range).add(this.transform.position);
+        this.targets.forEach(e => {
+            if (IsInsideLine(e.transform.position, this.transform.position, end, 7))
+                e.life -= this.damage;
+        });
+        this.manager.AddEntity(new BulletTrail(7, .8 / this.fire_rate, this.bullet_origin, end));
+    }
+}
 class AntiAir extends CannonTurret
 {
     constructor(transform = new Transform())
@@ -1186,6 +1253,7 @@ class AntiAir extends CannonTurret
         this.transform.scale = .5;
         this.aoe = 70;
         this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.evolutions = [new Sniper]
     }
     get copy() { return new AntiAir(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
@@ -1323,7 +1391,7 @@ let gui =
     },
     RenderTowerUpgrades(top_position, turret)
     {
-        let size = vec(200, 25);
+        let size = vec(200, 40);
         let pos = top_position.add(vec(0, 5));
         let evolution_ready = true;
         for (let p in turret.upgrades)
