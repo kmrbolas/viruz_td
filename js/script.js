@@ -184,6 +184,16 @@ function AddProperty(o, name, get, set = undefined)
         enumerable: true,
     });
 }
+function RenderTrail(style, radius, lines_number, alpha, ...positions)
+{
+    let r = radius / lines_number;
+    for (let i = 0; i < lines_number; i++)
+    {
+        context.globalAlpha = (1 / (lines_number - i)) * alpha;
+        RenderLines(style, radius - i * r, ...positions);
+    }
+    context.globalAlpha = 1;
+}
 let Input =
 {
     mouseClick: false,
@@ -867,13 +877,7 @@ class BulletTrail extends Entity
     }
     Render()
     {
-        let r = this.radius / this.lines_number;
-        for (let i = 0; i < this.lines_number; i++)
-        {
-            context.globalAlpha = (1 / (this.lines_number - i)) * this.percent;
-            RenderLines("white", this.radius - i * r, this.start, this.end);
-        }
-        context.globalAlpha = 1;
+        RenderTrail("white", this.radius, this.lines_number, this.percent, this.start, this.end);
     }
 }
 class Upgrade
@@ -1330,6 +1334,8 @@ class GameManager extends EntityManager
         super();
         this._map = null;
     }
+    get level_completed() { return this.map.finished && !this.entities.filter(e => { return e instanceof Enemy; }).length; }
+    get game_over() { return this.map.core.life == 0; }
     get map() { return this._map; }
     set map(value)
     {
@@ -1560,13 +1566,15 @@ function RenderGameOver()
         gui.Reset();
         game_state = 2;
     }
-    
 }
 
 function RenderScore()
 {
-    let size = vec(canvas.width * .1, canvas.height * .08);
-    let pos = vec(canvas.width / 2, canvas.height / 2).sub(size.div(2));
+    let size = vec(canvas.width * .2, canvas.height * .08);
+    let pos = vec(canvas.width * .5, canvas.height * .5).sub(size.div(2));
+    Button(pos, size, "Sua Pontuação foi: " + Player.score);
+    size = vec(canvas.width * .1, canvas.height * .08);
+    pos = vec(canvas.width * .5, canvas.height * .8).sub(size.div(2));
     if (Button(pos, size, "Continuar"))
     {
         if (++map_index == maps.length)
@@ -1577,6 +1585,7 @@ function RenderScore()
         manager.map = maps[map_index];
         gui.Reset();
         game_state = 2;
+        Player.score = 0;
     }
     gui.selected_entity = null;
     gui.selected_turret = null;
@@ -1627,9 +1636,9 @@ function Update()
         case 2:
         manager.Update();
         gui.Update();
-        if (manager.map.core.life == 0)
+        if (manager.game_over)
             game_state = 1;
-        else if (manager.map.finished && !manager.entities.filter(e => { return e instanceof Enemy; }).length)
+        else if (manager.level_completed)
             game_state = 3;
         break;
     }
@@ -1660,7 +1669,6 @@ function Render()
         RenderTutorial();
         break;
     }
-    // RenderCircle(Input.mousePos, 5, "#F00", "#000", 1);
 }
 
 let lastRender = 0;
