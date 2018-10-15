@@ -365,6 +365,7 @@ let sprites =
     mini_gun: Sprite.CreateSheet("imagem/turrets/mini_gun_", 2, ".png"),
     shotgun: new Sprite("imagem/turrets/shotgun.png"),
     toxic_launcher: new Sprite("imagem/turrets/toxic_launcher.png"),
+    sniper: new Sprite("imagem/turrets/sniper.png"),
     base: Sprite.CreateArray("imagem/turrets/base.png", "imagem/turrets/base_enabled.png", "imagem/turrets/base_disabled.png"),
     rocket: new Sprite("imagem/projectiles/rocket.png"),
     toxic_rocket: new Sprite("imagem/projectiles/toxic_rocket.png"),
@@ -1215,20 +1216,22 @@ class Sniper extends CannonTurret
 {
     constructor(transform = new Transform())
     {
-        super(sprites.anti_air, 1, 200, transform);
+        super([sprites.sniper], 2, 200, transform);
         this.upgrades.Alcance = new Upgrade(9000, 1);
         this.upgrades.Dano = new Upgrade(150, 5);
         this.name = "Sniper";
         this.cost = 120;
         this.transform.scale = .5;
-        this.remove_filter = e => { return e.type == "Terrestre"; };
+        // this.remove_filter = e => { return e.type == "Terrestre"; };
         this.fov = .1;
         this.turn_speed = 30;
-        this.cannon_size = 30;
+        this.cannon_size = 54;
     }
     get copy() { return new Sniper(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
+    get aoe() { return 10; }
     get info() { return super.info.concat("Alvos: Aéreos", "Dano: " + this.damage); }
+
     UpdateTargetsInRange()
     {
         super.UpdateTargetsInRange();
@@ -1240,10 +1243,10 @@ class Sniper extends CannonTurret
     {
         let end = Vector2.angleVector(this.transform.rotation).mult(this.range).add(this.transform.position);
         this.targets.forEach(e => {
-            if (IsInsideLine(e.transform.position, this.transform.position, end, 7))
+            if (IsInsideLine(e.transform.position, this.transform.position, end, this.aoe))
                 e.life -= this.damage;
         });
-        this.manager.AddEntity(new BulletTrail(7, .8 / this.fire_rate, this.bullet_origin, end));
+        this.manager.AddEntity(new BulletTrail(this.aoe, .8, this.bullet_origin, end));
     }
 }
 class AntiAir extends CannonTurret
