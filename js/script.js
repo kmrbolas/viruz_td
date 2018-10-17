@@ -1222,7 +1222,7 @@ class Sniper extends CannonTurret
         this.name = "Sniper";
         this.cost = 120;
         this.transform.scale = .5;
-        // this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.remove_filter = e => { return e.type == "Terrestre"; };
         this.fov = .1;
         this.turn_speed = 30;
         this.cannon_size = 54;
