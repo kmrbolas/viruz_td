@@ -1297,7 +1297,7 @@ class FlameThrower extends Turret
         this.upgrades.Dano = new Upgrade(320, 5);
         this.fov = .9;
         this.timer.delay = 0;
-        // this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.remove_filter = e => { return e.type == "Terrestre"; };
         this.particle_timer = new Timer(.1, () => {
             if (!this.targets.length)
                 return;
