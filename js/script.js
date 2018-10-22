@@ -1123,7 +1123,7 @@ class MachineGun extends Turret
         this.bullet_sprite = sprites.bullet;
         this.left = false;
         this.transform.scale = .5;
-        this.upgrades.Dano = new Upgrade(40, 5);
+        this.upgrades.Dano = new Upgrade(34, 5);
         this.bullet_aoe = 0;
         this.bullet_speed = 700;
         this.name = "Metralhadora";
