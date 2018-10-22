@@ -1443,6 +1443,23 @@ class GameManager extends EntityManager
     }
 }
 
+function Sound(src) {
+    this.sound = document.createElement("audio");
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.style.display = "none";
+    document.body.appendChild(this.sound);
+    this.play = function(){
+        this.sound.play();
+    }
+    this.stop = function(){
+        this.sound.pause();
+    }
+}
+
+let ss = new Sound("sounds/Trivium - Ascendancy 8-bit Cover by BONESOLVENT.mp3");
+
 let paths =
 [
     new Path(sprites.paths[0], new KillableEntity(5000, trans(vec(375, 580))), vec(0, 105), vec(332, 105), vec(332, 235), vec(730, 235), vec(730, 445), vec(375, 445)),
@@ -1715,6 +1732,8 @@ function Start()
     manager.map = maps[0];
 
     manager.AddEntity(new ToxicCloud(10, trans(vec(50, 50))));
+
+    ss.play();
 }
 
 function Update()
