@@ -378,6 +378,9 @@ let sprites =
     grass: new Sprite("imagem/background/grass.jpg"),
     paths: Sprite.CreateSheet("imagem/background/Track", 5,".png"),
     menu_background: new Sprite("imagem/background/menu.png"),
+    game_over: new Sprite("imagem/background/game_over.png"),
+    game_finished: new Sprite("imagem/background/game_finished.png"),
+    next_level: new Sprite("imagem/background/next_level.png"),
     tutorial: Sprite.CreateSheet("imagem/tutorial/tut", 3, ".png"),
 }
 class Entity extends Transformable
@@ -1028,15 +1031,19 @@ class Turret extends Entity
     }
     static RenderRange(transform, range, fov = 0, color = "#999")
     {
-        let d = fov / 2;
-        let a1 = transform.rotation - d;
-        let a2 = transform.rotation + d;
-        let dir1 = Vector2.angleVector(a1).mult(range).add(transform.position);
-        let dir2 = Vector2.angleVector(a2).mult(range).add(transform.position);
+        
         context.save();
         context.globalAlpha = .4;
         RenderCircle(transform.position, range, color);
-        RenderLines("#000", 1, dir1, transform.position, dir2);
+        if (fov !== 0 && fov !== 2 * Math.PI)
+        {
+            let d = fov / 2;
+            let a1 = transform.rotation - d;
+            let a2 = transform.rotation + d;
+            let dir1 = Vector2.angleVector(a1).mult(range).add(transform.position);
+            let dir2 = Vector2.angleVector(a2).mult(range).add(transform.position);
+            RenderLines("#000", 1, dir1, transform.position, dir2);
+        }
         context.restore();
     }
 }
@@ -1372,11 +1379,43 @@ class AntiAir extends CannonTurret
         this.manager.AddEntity(new Rocket(sprites.rocket, animations.explosion_realistic, this.damage, this.aoe, 350, this.target, this.transform));
     }
 }
+class GodTower extends Turret
+{
+    constructor(transform = new Transform())
+    {
+        super(666, 99999, transform);
+        this.upgrades.Alcance.max_level = 1;
+        this.name = "God-Tower";
+        this.cost = 0;
+        this.fov = 2 * Math.PI;
+        this.turn_speed = 99999;
+    }
+    get copy() { return new GodTower(this.transform); }
+    get info() { return super.info.concat("Alvos: ????", "Dano: InstaKill"); }
+    Shoot()
+    {
+        this.targets.forEach(e => {
+            e.life = 0;
+        });
+    }
+    RenderState(b)
+    {
+        if (b)
+            RenderCircle(this.transform.position, 10 * this.transform.scale, "green", "black", 2);
+        else
+            RenderCircle(this.transform.position, 10 * this.transform.scale, "red", "black", 2);
+    }
+    Render()
+    {
+        RenderCircle(this.transform.position, 10 * this.transform.scale, "blue", "black", 2);
+    }
+}
 let turrets =
 {
     machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
+    god_tower: new GodTower(),
 };
 class GameMap extends Entity
 {
@@ -1509,6 +1548,10 @@ let sounds =
 [
     new Sound("sounds/Trivium - The End of Everything 8-bit Cover by BONESOLVENT.mp3"),
     new Sound("sounds/Trivium - Ascendancy 8-bit Cover by BONESOLVENT.mp3"),
+    new Sound("sounds/Trivium - Throes Of Perdition (8-Bit).mp3"),
+    new Sound("sounds/Three Days Grace - Pain (8 bit).mp3"),
+    new Sound("sounds/Avenged Sevenfold - Buried Alive (8-bit).mp3"),
+    new Sound("sounds/Avenged Sevenfold - Not Ready To Die (8-bit).mp3"),
 ];
 
 let soundtrack =
@@ -1726,9 +1769,10 @@ function RenderStartMenu()
 
 function RenderGameOver()
 {
+    sprites.game_over.Render();
     soundtrack.current.Stop();
-    let size = vec(canvas.width * .15, canvas.height * .08);
-    let pos = vec(canvas.width / 2, canvas.height / 2).sub(size.div(2));
+    let size = vec(canvas.width * .2, canvas.height * .08);
+    let pos = vec(canvas.width * .5, canvas.height * .9).sub(size.div(2));
     if (Button(pos, size, "Tentar Novamente"))
     {
         manager.Reset();
@@ -1740,11 +1784,12 @@ function RenderGameOver()
 
 function RenderScore()
 {
+    sprites.next_level.Render();
     let size = vec(canvas.width * .2, canvas.height * .08);
-    let pos = vec(canvas.width * .5, canvas.height * .5).sub(size.div(2));
+    let pos = vec(canvas.width * .5, canvas.height * .8).sub(size.div(2));
     Button(pos, size, "Sua Pontuação foi: " + Player.score);
     size = vec(canvas.width * .1, canvas.height * .08);
-    pos = vec(canvas.width * .5, canvas.height * .8).sub(size.div(2));
+    pos = vec(canvas.width * .5, canvas.height * .9).sub(size.div(2));
     if (Button(pos, size, "Continuar"))
     {
         if (++map_index == maps.length)
@@ -1765,7 +1810,14 @@ function RenderScore()
 
 function RenderCredits()
 {
-
+    sprites.game_finished.Render();
+    let size = vec(canvas.width * .1, canvas.height * .08);
+    let pos = vec(canvas.width * .6, canvas.height * .9).sub(size.div(2));
+    if (Button(pos, size, "Menu"))
+    {
+        game_state = 0;
+        soundtrack.index = 0;
+    }
 }
 
 function RenderTutorial()
@@ -1795,6 +1847,9 @@ function Start()
     sprites.paths.forEach(b => { b.top_position = vec(0, 0); });
     sprites.tutorial.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
+    sprites.next_level.top_position = vec(0, 0);
+    sprites.game_over.top_position = vec(0, 0);
+    sprites.game_finished.top_position = vec(0, 0);
     manager.map = maps[0];
 }
 
