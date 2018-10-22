@@ -371,6 +371,7 @@ let sprites =
     toxic_rocket: new Sprite("imagem/projectiles/toxic_rocket.png"),
     bullet: new Sprite("imagem/projectiles/bullet.png"),
     laser_beam: new Sprite("imagem/projectiles/laser.png"),
+    flame_thrower: Sprite.CreateSheet("imagem/turrets/flamethrower_", 2, ".png"),
     explosion: Sprite.CreateSheet("imagem/effects/tile00", 5, ".png"),
     explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("imagem/background/grass.jpg"),
@@ -507,7 +508,7 @@ class KillableEntity extends Entity
         this.max_life = max_life;
         this._life = max_life;
     }
-    get info() { return ["Vida Atual: " + this.life, "Vida Máxima" + this.max_life]; }
+    get info() { return ["Vida Atual: " + Math.round(this.life), "Vida Máxima" + this.max_life]; }
     get is_alive() { return this.life > 0; }
     get is_dead() { return !this.is_alive; }
     get life() { return this._life; }
@@ -853,9 +854,45 @@ class ToxicCloud extends Entity
             let grd = context.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, c.radius);
             grd.addColorStop(0,"#7df442");
             grd.addColorStop(1,"transparent");
-            let style = grd;
-            RenderCircleFilled(pos, c.radius, style);
+            RenderCircleFilled(pos, c.radius, grd);
         });
+        context.globalAlpha = 1;
+    }
+}
+class LightParticle extends Entity
+{
+    constructor(velocity, duration, radius, alpha, colors, transform = new Transform)
+    {
+        super(transform);
+        this.velocity = velocity;
+        this.radius = radius;
+        this.colors = colors;
+        this.alpha = alpha;
+        this.timer = new Timer(duration, () => { this.Release(); });
+        this.traveled_distance = 0;
+        this.render_layer = 3;
+    }
+    get percent() { return this.timer.to_tick / this.timer.delay; }
+    get radius_mult() { return this.timer.elapsed / this.timer.delay; }
+    Update()
+    {
+        this.timer.Update();
+        this.transform.position = this.transform.position.add(this.velocity.mult(Time.deltaTime));
+        this.traveled_distance += Time.deltaTime;
+    }
+    Render()
+    {
+        let pos = this.transform.position;
+        let radius = this.radius * this.radius_mult;
+        context.globalAlpha = this.alpha * this.percent;
+        let grd = context.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, radius);
+        let s = 1 / (this.colors.length + 1);
+        for (let i = 0; i < this.colors.length; i++) {
+            const color = this.colors[i];
+            grd.addColorStop(i * s, color);
+        }
+        grd.addColorStop(1, "transparent");
+        RenderCircleFilled(pos, radius, grd);
         context.globalAlpha = 1;
     }
 }
@@ -1249,6 +1286,54 @@ class Sniper extends CannonTurret
         this.manager.AddEntity(new BulletTrail(this.aoe, .8, this.bullet_origin, end));
     }
 }
+class FlameThrower extends Turret
+{
+    constructor(transform = new Transform())
+    {
+        super(15, 150, transform);
+        this.transform.scale = .5;
+        this.name = "Lança Chamas";
+        this.cost = 120;
+        this.upgrades.Dano = new Upgrade(320, 5);
+        this.fov = .9;
+        this.timer.delay = 0;
+        // this.remove_filter = e => { return e.type == "Terrestre"; };
+        this.particle_timer = new Timer(.1, () => {
+            if (!this.targets.length)
+                return;
+            for (let i = 0; i < 50; i++)
+            {
+                let p = new LightParticle(Vector2.angleVector(this.transform.rotation + this.fov * .6 * (Math.random() - .5)).mult(this.flame_speed), this.flame_duration, 50, 1, ["red", "orange", "yellow"], new Transform(this.bullet_position));
+                this.manager.AddEntity(p);
+            }
+        });
+    }
+    get copy() { return new FlameThrower(this.transform); }
+    get damage() { return this.upgrades.Dano.value; }
+    get info() { return [this.name, "Alcance: " + Math.round(this.range), "Alvos: Aéreos", "Dano por Segundo: " + Math.round(this.damage)]; }
+    get bullet_position() { return Vector2.add(this.transform.position, Vector2.angleVector(this.transform.rotation).mult(50 * this.transform.scale)); }
+    get flame_speed() { return 350; }
+    get flame_duration() { return this.range * .9 / this.flame_speed; }
+    Shoot()
+    {
+        
+        this.targets.forEach(e => {
+            e.life -= (this.damage + .15 * e.max_life) * Time.deltaTime;
+        });
+    }
+    Update()
+    {
+        super.Update();
+        this.particle_timer.Update();
+    }
+    Render()
+    {
+        super.Render();
+        let sprite = this.targets.length ? sprites.flame_thrower[1] : sprites.flame_thrower[0];
+        sprite.transform = this.transform;
+        sprite.Render();
+    }
+}
 class AntiAir extends CannonTurret
 {
     constructor(transform = new Transform())
@@ -1260,7 +1345,7 @@ class AntiAir extends CannonTurret
         this.transform.scale = .5;
         this.aoe = 70;
         this.remove_filter = e => { return e.type == "Terrestre"; };
-        this.evolutions = [new Sniper]
+        this.evolutions = [new Sniper, new FlameThrower]
     }
     get copy() { return new AntiAir(this.transform); }
     get damage() { return this.upgrades.Dano.value; }
