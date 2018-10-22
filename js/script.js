@@ -1513,18 +1513,18 @@ let paths =
 
 let waves =
 [
-    [wave(20), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
-    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
-    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
+    [wave(20), wave(.5, spider_factory.Create[1], 35), wave(10), wave(.5, spider_factory.Create[2], 30), wave(20), wave(.5, beetle_factory.Create[2], 25), wave(5), wave(.5, spider_factory.Create[2], 20)],
+    [wave(20), wave(.5, wasp_factory.Create[1], 30), wave(10), wave(.5, spider_factory.Create[2], 35), wave(20), wave(.5, beetle_factory.Create[3], 15), wave(5), wave(.5, wasp_factory.Create[1], 20)],
+    [wave(20), wave(.5, spider_factory.Create[2], 35), wave(10), wave(.5, wasp_factory.Create[3], 25), wave(10), wave(.5, beetle_factory.Create[3], 20)],
     [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
     [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
 ];
 
 let maps =
 [
-    new GameMap(sprites.paths[1], 15000, paths[1], waves[1]),
-    new GameMap(sprites.paths[0], 5000, paths[0], waves[0]),
-    new GameMap(sprites.paths[2], 5000, paths[2], waves[2]),
+    new GameMap(sprites.paths[0], 3000, paths[0], waves[0]),
+    new GameMap(sprites.paths[1], 3500, paths[1], waves[1]),
+    new GameMap(sprites.paths[2], 3500, paths[2], waves[2]),
     new GameMap(sprites.paths[3], 5000, paths[3], waves[3]),
     new GameMap(sprites.paths[4], 5000, paths[4], waves[4]),
 ];
