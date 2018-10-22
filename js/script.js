@@ -221,7 +221,8 @@ let Time =
 }
 let Player =
 {
-    level: 0,
+    canvas_interacted: false,
+    mute_sound: false,
     gold: 5000,
     score: 0,
 }
@@ -375,7 +376,7 @@ let sprites =
     explosion: Sprite.CreateSheet("imagem/effects/tile00", 5, ".png"),
     explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
     grass: new Sprite("imagem/background/grass.jpg"),
-    paths: Sprite.CreateSheet("imagem/background/Track", 4,".png"),
+    paths: Sprite.CreateSheet("imagem/background/Track", 5,".png"),
     menu_background: new Sprite("imagem/background/menu.png"),
     tutorial: Sprite.CreateSheet("imagem/tutorial/tut", 3, ".png"),
 }
@@ -1443,22 +1444,63 @@ class GameManager extends EntityManager
     }
 }
 
-function Sound(src) {
-    this.sound = document.createElement("audio");
-    this.sound.src = src;
-    this.sound.setAttribute("preload", "auto");
-    this.sound.setAttribute("controls", "none");
-    this.sound.style.display = "none";
-    document.body.appendChild(this.sound);
-    this.play = function(){
-        this.sound.play();
+class Sound
+{
+    constructor(src)
+    {
+        this.audio = document.createElement("audio");
+        this.audio.src = src;
+        this.audio.setAttribute("preload", "auto");
+        this.audio.setAttribute("controls", "none");
+        this.audio.style.display = "none";
+        this.audio.ontimeupdate = () => {
+            this.CheckVolume();
+        };
+        this.audio.loop = true;
     }
-    this.stop = function(){
-        this.sound.pause();
+    get is_playing() { return !this.audio.paused; }
+    get is_paused() { return this.audio.paused; }
+    get elapsed() { return this.audio.currentTime; }
+    set elapsed(value) { this.audio.currentTime = value; }
+    get auto_play() { return this.audio.autoplay; }
+    set auto_play(value) { this.audio.autoplay = value; }
+    get loop() { return this.audio.loop; }
+    set loop(value) { this.audio.loop = value; }
+    CheckVolume()
+    {
+        if (Player.mute_sound) this.audio.volume = 0;
+        else this.audio.volume = 1;
+    }
+    Play()
+    {
+        this.CheckVolume();
+        this.audio.play();
+    }
+    Pause() { this.audio.pause(); }
+    Stop()
+    {
+        this.Pause();
+        this.elapsed = 0;
+    }
+    Replay()
+    {
+        this.Stop();
+        this.Play();
     }
 }
 
-let ss = new Sound("sounds/Trivium - Ascendancy 8-bit Cover by BONESOLVENT.mp3");
+let sounds =
+[
+    new Sound("sounds/Trivium - The End of Everything 8-bit Cover by BONESOLVENT.mp3"),
+    new Sound("sounds/Trivium - Ascendancy 8-bit Cover by BONESOLVENT.mp3"),
+];
+
+let soundtrack =
+{
+    _index: 0,
+};
+AddProperty(soundtrack, "current", function(){return sounds[this._index];});
+AddProperty(soundtrack, "index", function(){return this._index;}, function(value){this.current.Stop();this._index=Math.clamp(value,0,sounds.length-1);this.current.Play();});
 
 let paths =
 [
@@ -1466,11 +1508,14 @@ let paths =
     new Path(sprites.paths[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
     new Path(sprites.paths[2], new KillableEntity(5000, trans(vec(580, 588))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
     new Path(sprites.paths[3], new KillableEntity(5000, trans(vec(270, 592))), vec(0, 358), vec(136, 358), vec(136, 43), vec(360, 43), vec(360, 145), vec(542, 145), vec(542, 50), vec(720, 50), vec(720, 255), vec(318, 255), vec(318, 393), vec(583, 393), vec(583, 505), vec(270, 505)),
+    new Path(sprites.paths[4], new KillableEntity(5000, trans(vec(429, 595))), vec(146, 0), vec(146, 86), vec(267, 86), vec(267, 258), vec(103, 258), vec(103, 497), vec(270, 497), vec(270, 365), vec(390, 365), vec(390, 89), vec(672, 89), vec(672, 226), vec(551, 226), vec(551, 365), vec(673, 365), vec(673, 477),vec(429, 47)),
 ];
 
 let waves =
 [
     [wave(20), wave(.5, spider_factory.Create[0], 20), wave(10), wave(.5, beetle_factory.Create[0], 20), wave(10), wave(.5, wasp_factory.Create[0], 20)],
+    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
+    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
     [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
     [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
 ];
@@ -1480,7 +1525,8 @@ let maps =
     new GameMap(sprites.paths[1], 15000, paths[1], waves[1]),
     new GameMap(sprites.paths[0], 5000, paths[0], waves[0]),
     new GameMap(sprites.paths[2], 5000, paths[2], waves[2]),
-    new GameMap(sprites.paths[3], 5000, paths[3], waves[0]),
+    new GameMap(sprites.paths[3], 5000, paths[3], waves[3]),
+    new GameMap(sprites.paths[4], 5000, paths[4], waves[4]),
 ];
 
 let manager = new GameManager();
@@ -1650,6 +1696,7 @@ function RenderStartMenu()
     let pos = vec(canvas.width * .5, canvas.height * .5).sub(size.div(2));
     if (Button(pos, size, "Jogar"))
     {
+        soundtrack.index++;
         manager.map = maps[0];
         game_state = 2;
     }
@@ -1663,12 +1710,14 @@ function RenderStartMenu()
 
 function RenderGameOver()
 {
+    soundtrack.current.Stop();
     let size = vec(canvas.width * .15, canvas.height * .08);
     let pos = vec(canvas.width / 2, canvas.height / 2).sub(size.div(2));
     if (Button(pos, size, "Tentar Novamente"))
     {
         manager.Reset();
         gui.Reset();
+        soundtrack.current.Play();
         game_state = 2;
     }
 }
@@ -1687,6 +1736,7 @@ function RenderScore()
             game_state = 4;
             return;
         }
+        soundtrack.index++;
         manager.map = maps[map_index];
         gui.Reset();
         game_state = 2;
@@ -1730,10 +1780,6 @@ function Start()
     sprites.tutorial.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
     manager.map = maps[0];
-
-    manager.AddEntity(new ToxicCloud(10, trans(vec(50, 50))));
-
-    ss.play();
 }
 
 function Update()
@@ -1776,6 +1822,25 @@ function Render()
         RenderTutorial();
         break;
     }
+    if (!Player.canvas_interacted)
+        return;
+    let pos = vec(canvas.width * .01, canvas.height * .01);
+    let size = vec(canvas.width * .12, canvas.height * .03);
+    if (Button(pos, size, "Música: " + (Player.mute_sound ? "Desligada" : "Ligada")))
+        Player.mute_sound = !Player.mute_sound;
+    if (!Player.mute_sound)
+    {
+        pos.x += size.x * 1.05;
+        size.x = 500;
+        let str = soundtrack.current.audio.src;
+        str = str.replace(/%20/g, " ");
+        str = str.replace(".mp3","");
+        str = str.split(/(\\|\/)/g).pop();
+        if (Button(pos, size, str))
+        {
+            navigator.clipboard.writeText(str);
+        }
+    }
 }
 
 let lastRender = 0;
@@ -1795,6 +1860,11 @@ function handleClick(e)
 {
     e.preventDefault();
     Input.mouseClick = true;
+    if (!Player.canvas_interacted)
+    {
+        soundtrack.current.Play();
+        Player.canvas_interacted = true;
+    }
 }
 canvas.addEventListener("click", handleClick);
 canvas.addEventListener("touchend", handleClick);
