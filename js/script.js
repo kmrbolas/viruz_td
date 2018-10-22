@@ -682,7 +682,23 @@ class EnemyFactory
         e.path = path;
         e.name = this.name;
         e.rank = rank;
-        e.gold = 3 * (rank + 1);
+        switch(rank){
+            case 0 :
+            e.gold = 3;
+            break;
+            case 1 :
+            e.gold = 5;
+            break;
+            case 2 :
+            e.gold = 9;
+            break;
+            case 3 :
+            e.gold = 13;
+            case 4 :
+            e.gold = 15;
+            break;
+        }
+
         AddProperty(e, "info", function() {
             return [this.name + "-" + (rank != 4 ? rank != 3 ? rank != 2 ? rank != 1 ? "D" : "C" : "B" : "A" : "S"),
             "Vida: " + this.life + " de " + this.max_life,
@@ -719,8 +735,8 @@ class EnemyFactory
     }
 }
 let spider_factory = new EnemyFactory("Mecha-Aranha", animations.spider, .4, 100, 100, "Terrestre");
-let beetle_factory = new EnemyFactory("Mecha-Besouro", animations.beetle, .3, 80, 150, "Terrestre");
-let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 100, 125, "Aéreo");
+let beetle_factory = new EnemyFactory("Mecha-Besouro", animations.beetle, .3, 80, 220, "Terrestre");
+let wasp_factory = new EnemyFactory("Mecha-Vespa", animations.wasp, .3, 140, 180, "Aéreo");
 class Projectile extends Entity
 {
     constructor(aoe, speed, main_target, transform = new Transform())
@@ -1508,25 +1524,25 @@ let paths =
     new Path(sprites.paths[1], new KillableEntity(5000, trans(vec(625, 540))), vec(0, 100), vec(650, 100), vec(650, 290), vec(155, 290), vec(155, 450), vec(625, 450)),
     new Path(sprites.paths[2], new KillableEntity(5000, trans(vec(580, 588))), vec(0, 65), vec(240, 65), vec(240, 175), vec(435, 175), vec(435, 65), vec(725, 65), vec(725, 328), vec(295, 328), vec(295, 478), vec(580, 478)),
     new Path(sprites.paths[3], new KillableEntity(5000, trans(vec(270, 592))), vec(0, 358), vec(136, 358), vec(136, 43), vec(360, 43), vec(360, 145), vec(542, 145), vec(542, 50), vec(720, 50), vec(720, 255), vec(318, 255), vec(318, 393), vec(583, 393), vec(583, 505), vec(270, 505)),
-    new Path(sprites.paths[4], new KillableEntity(5000, trans(vec(429, 595))), vec(146, 0), vec(146, 86), vec(267, 86), vec(267, 258), vec(103, 258), vec(103, 497), vec(270, 497), vec(270, 365), vec(390, 365), vec(390, 89), vec(672, 89), vec(672, 226), vec(551, 226), vec(551, 365), vec(673, 365), vec(673, 477),vec(429, 47)),
+    new Path(sprites.paths[4], new KillableEntity(5000, trans(vec(429, 595))), vec(146, 0), vec(146, 86), vec(267, 86), vec(267, 258), vec(103, 258), vec(103, 497), vec(270, 497), vec(270, 365), vec(390, 365), vec(390, 89), vec(672, 89), vec(672, 226), vec(551, 226), vec(551, 365), vec(673, 365), vec(673, 477),vec(429, 477)),
 ];
 
 let waves =
 [
     [wave(20), wave(.5, spider_factory.Create[1], 35), wave(10), wave(.5, spider_factory.Create[2], 35), wave(20), wave(.5, beetle_factory.Create[2], 25), wave(3), wave(.5, spider_factory.Create[2], 35)],
-    [wave(20), wave(.5, wasp_factory.Create[1], 30), wave(10), wave(.5, spider_factory.Create[2], 35), wave(20), wave(.5, beetle_factory.Create[3], 15), wave(5), wave(.5, wasp_factory.Create[1], 20)],
-    [wave(20), wave(.5, spider_factory.Create[2], 35), wave(10), wave(.5, wasp_factory.Create[3], 25), wave(10), wave(.5, beetle_factory.Create[3], 20)],
-    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
-    [wave(20), wave(.5, spider_factory.Create[3], 20), wave(10), wave(.5, beetle_factory.Create[3], 20), wave(10), wave(.5, wasp_factory.Create[3], 20)],
+    [wave(20), wave(.5, wasp_factory.Create[1], 30), wave(10), wave(.5, spider_factory.Create[2], 35), wave(20), wave(.5, beetle_factory.Create[3], 15), wave(3), wave(.5, wasp_factory.Create[2], 20)],
+    [wave(20), wave(.5, spider_factory.Create[2], 35), wave(10), wave(.5, wasp_factory.Create[3], 25), wave(20), wave(.5, beetle_factory.Create[3], 25), wave(3), wave(.5, spider_factory.Create[3], 30)],
+    [wave(20), wave(.5, spider_factory.Create[3], 35), wave(8), wave(.5, beetle_factory.Create[3], 30), wave(8), wave(.5, wasp_factory.Create[3], 25), wave(20), wave(.7, spider_factory.Create[4], 20), wave(3), wave(.7, beetle_factory.Create[4], 20)],
+    [wave(20), wave(.7, wasp_factory.Create[4], 20), wave(8), wave(.7, spider_factory.Create[4], 35), wave(8), wave(.7, wasp_factory.Create[4], 20), wave(8), wave(.7, spider_factory.Create[4], 40), wave(20), wave(.7, beetle_factory.Create[4], 30), wave(3), wave(.7, spider_factory.Create[4], 15), wave(3), wave(.7, wasp_factory.Create[4], 15)],
 ];
 
 let maps =
 [
     new GameMap(sprites.paths[0], 600, paths[0], waves[0]),
-    new GameMap(sprites.paths[1], 800, paths[1], waves[1]),
+    new GameMap(sprites.paths[1], 700, paths[1], waves[1]),
     new GameMap(sprites.paths[2], 800, paths[2], waves[2]),
-    new GameMap(sprites.paths[3], 800, paths[3], waves[3]),
-    new GameMap(sprites.paths[4], 800, paths[4], waves[4]),
+    new GameMap(sprites.paths[3], 1000, paths[3], waves[3]),
+    new GameMap(sprites.paths[4], 2000, paths[4], waves[4]),
 ];
 
 let manager = new GameManager();
