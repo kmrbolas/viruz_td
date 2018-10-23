@@ -375,7 +375,6 @@ let sprites =
     flame_thrower: Sprite.CreateSheet("imagem/turrets/flamethrower_", 2, ".png"),
     explosion: Sprite.CreateSheet("imagem/effects/tile00", 5, ".png"),
     explosion_realistic: Sprite.CreateSheet("imagem/effects/realexplosion/", 27, ".png"),
-    grass: new Sprite("imagem/background/grass.jpg"),
     paths: Sprite.CreateSheet("imagem/background/Track", 5,".png"),
     menu_background: new Sprite("imagem/background/menu.png"),
     game_over: new Sprite("imagem/background/game_over.png"),
@@ -1843,7 +1842,6 @@ function RenderTutorial()
 
 function Start()
 {
-    sprites.grass.top_position = vec(0, 0);
     sprites.paths.forEach(b => { b.top_position = vec(0, 0); });
     sprites.tutorial.forEach(b => { b.top_position = vec(0, 0); });
     sprites.menu_background.top_position = vec(0, 0);
