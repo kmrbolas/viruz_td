@@ -1415,7 +1415,7 @@ let turrets =
     machine_gun: new MachineGun(),
     rocket_launcher: new RocketLauncher(),
     anti_air: new AntiAir(),
-    god_tower: new GodTower(),
+    // god_tower: new GodTower(),
 };
 class GameMap extends Entity
 {
